@@ -1,7 +1,7 @@
 # app/controllers/users_controller.rb
 class UsersController < ApplicationController
     protect_from_forgery with: :null_session
-    before_action :authenticate_request!, only: [:show, :index]
+    before_action :authenticate_request!, only: [:show, :index, :update]
 
     def show
         user_id = params[:id]
@@ -42,5 +42,46 @@ class UsersController < ApplicationController
             user_obj 
         end
         render json: users_data
+    end
+
+    def update
+        target_user_id = params[:id]
+        target_user_doc = FirestoreDB.doc("users/#{target_user_id}")
+
+        if can_edit_user?(target_user_doc)
+            user_params = params.require(:user).permit(:nombre_completo, :correo, :celular, :campus, :active, :identificador)
+            clean_params = {
+                nombre_completo: user_params[:nombre_completo],
+                correo: user_params[:correo],
+                celular: user_params[:celular],
+                campus: user_params[:campus],
+                active: user_params[:active],
+                identificador: user_params[:identificador]
+            }
+            # remove empty fields
+            clean_params.delete_if { |k, v| v.nil? }
+            
+            target_user_doc.set(clean_params, merge: true)
+            render json: { message: 'User updated successfully' }
+        else
+            render json: { error: 'Not authorized to edit this user' }, status: :forbidden
+        end
+    end
+
+    private
+
+    def can_edit_user?(target_user)
+        document_id = @current_user[:document_id]
+        target_tipo = target_user.get[:tipo]
+        return true if document_id == target_user.document_id # Users can always edit themselves
+
+        case current_user[:tipo]
+        when 'AsistenteAdmin'
+            ['Profesor', 'ProfesorCoordinador', 'Estudiante'].include?(target_tipo)
+        when 'Profesor', 'ProfesorCoordinador'
+            target_tipo == 'Estudiante'
+        else
+            false
+        end
     end
 end
