@@ -2,6 +2,7 @@
 class AuthController < ApplicationController
     protect_from_forgery with: :null_session # como es API no necesitamos protección CSRF
     def signup
+        # add active: true to user_params
         user = User.new(user_params)
         # si ya existe un usuario con el mismo correo, devolver un error
         if FirestoreDB.col('users').where('correo', '==', user.correo).get.any?
@@ -18,7 +19,7 @@ class AuthController < ApplicationController
                 campus: user.campus,
                 tipo: user.tipo,
                 password: hashed_password,
-                isActive: true
+                active: user.active
             }
             
             user_ref = FirestoreDB.col('users').add(user_data)
@@ -34,7 +35,7 @@ class AuthController < ApplicationController
         user_query = FirestoreDB.col('users').where('correo', '==', params[:correo])
         user = user_query.get.first
 
-        if user && user[:isActive]
+        if user && user[:active]
             if BCrypt::Password.new(user[:password]) == params[:password]
                 token = JWT.encode({ user_id: user.document_id }, ENV['JWT_SECRET'], 'HS256')
                 render json: { token: token }
