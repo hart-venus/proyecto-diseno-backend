@@ -5,7 +5,7 @@ class AuthController < ApplicationController
         # add active: true to user_params
         user = User.new(user_params)
         # si ya existe un usuario con el mismo correo, devolver un error
-        if FirestoreDB.col('users').where('correo', '==', user.correo).get.any?
+        if FirestoreDB.col('users').where('correo', '==', user.correo).get.any? || FirestoreDB.col('users').where('id', '==', user.id).get.any?
             render json: { errors: ['User already exists'] }, status: :conflict
             return
         end
@@ -19,6 +19,7 @@ class AuthController < ApplicationController
                 campus: user.campus,
                 tipo: user.tipo,
                 password: hashed_password,
+                id: user.id,
                 active: user.active
             }
             
@@ -50,6 +51,6 @@ class AuthController < ApplicationController
     private
 
     def user_params
-        params.require(:user).permit(:nombre_completo, :correo, :celular, :campus, :tipo, :password)
+        params.require(:user).permit(:nombre_completo, :correo, :celular, :campus, :tipo, :password, :id)
     end
 end
