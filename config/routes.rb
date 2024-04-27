@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   post '/signup', to: 'auth#signup'
   post '/login', to: 'auth#login'
   get '/protected', to: 'test#protected'
+  get '/users/:id', to: 'users#show'
+  get '/users', to: 'users#index'
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
