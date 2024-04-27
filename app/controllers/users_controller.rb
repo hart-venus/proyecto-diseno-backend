@@ -1,5 +1,6 @@
 # app/controllers/users_controller.rb
 class UsersController < ApplicationController
+    protect_from_forgery with: :null
     before_action :authenticate_request!, only: [:show, :index]
 
     def show
