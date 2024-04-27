@@ -17,7 +17,8 @@ class AuthController < ApplicationController
                 celular: user.celular,
                 campus: user.campus,
                 tipo: user.tipo,
-                password: hashed_password
+                password: hashed_password,
+                isActive: true
             }
             
             user_ref = FirestoreDB.col('users').add(user_data)
@@ -30,28 +31,17 @@ class AuthController < ApplicationController
     end
 
     def login
-        puts "Correo recibido: #{params[:correo]}"
-        puts "Contraseña recibida: #{params[:password]}"
-
         user_query = FirestoreDB.col('users').where('correo', '==', params[:correo])
-        puts "Query de usuario: #{user_query.inspect}"
-
         user = user_query.get.first
-        puts "Usuario encontrado: #{user.inspect}"
 
-        if user
-            puts "ID del documento del usuario: #{user.document_id}"
-            puts "Contraseña almacenada: #{user[:password]}"
-
+        if user && user[:isActive]
             if BCrypt::Password.new(user[:password]) == params[:password]
                 token = JWT.encode({ user_id: user.document_id }, ENV['JWT_SECRET'], 'HS256')
                 render json: { token: token }
             else
-                puts "La contraseña no coincide"
                 render json: { message: 'Invalid email or password' }, status: :unauthorized
             end
         else
-            puts "No se encontró el usuario"
             render json: { message: 'Invalid email or password' }, status: :unauthorized
         end
     end
