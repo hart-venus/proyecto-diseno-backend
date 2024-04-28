@@ -24,7 +24,16 @@ class ActivitiesController < ApplicationController
             end
         end
 
-        render json: { id: @activity.document_id }.merge(@activity.data).merge({ responsables: responsable_info })
+        # fetch all messages with activity_ref == params[:id]
+        messages_ref = FirestoreDB.col('messages').where('activity_ref', '==', params[:id])
+        messages = messages_ref.get.map do |message|
+            # get sender info
+            sender = FirestoreDB.doc("users/#{message[:sender]}").get
+            sender_info = { id: message[:sender] }.merge(sender.data.except(:password))
+            { id: message.document_id }.merge(message.data).merge({ sender: sender_info })
+        end
+
+        render json: { id: @activity.document_id }.merge(@activity.data).merge({ responsables: responsable_info }).merge({ messages: messages })
     end
 
     def create 
