@@ -13,7 +13,13 @@ class PlansController < ApplicationController
     end
 
     def show
-        render json: { id: @plan.document_id }.merge(@plan.data)
+        # fetch all activities with plan_ref == @plan
+        activities_ref = FirestoreDB.col('activities').where('plan_ref', '==', params[:id])
+        activities = activities_ref.get.map do |activity|
+            { id: activity.document_id }.merge(activity.data)
+        end
+
+        render json: { id: @plan.document_id }.merge(@plan.data).merge({ activities: activities })
     end
 
     def create
