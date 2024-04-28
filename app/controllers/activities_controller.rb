@@ -13,7 +13,18 @@ class ActivitiesController < ApplicationController
     end
 
     def show 
-        render json: { id: @activity.document_id }.merge(@activity.data)
+        # fetch all users with id on responsables
+        responsable_info = @activity[:responsables].map do |user_id|
+            user = FirestoreDB.doc("users/#{user_id}").get
+            # skip if user is not active
+            if user.exists? && user[:active]
+                { id: user_id }.merge(user.data.except(:password))
+            else 
+                { id: user_id }
+            end
+        end
+
+        render json: { id: @activity.document_id }.merge(@activity.data).merge({ responsables: responsable_info })
     end
 
     def create 
