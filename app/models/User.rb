@@ -1,17 +1,29 @@
+class User < ApplicationRecord
+    has_secure_password
+  
+    enum role: { professor: 0, admin: 1 }
+    enum campus: { CA: 0, SJ: 1, AL: 2, LI: 3, SC: 4 }
+  
+    # Validaciones
+    validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+    validates :password, presence: true, length: { minimum: 6 }
+    validates :role, presence: true
+    validates :full_name, presence: true
+    validates :campus, presence: true
 
-class User
-    include ActiveModel::Model
-    attr_accessor :nombre_completo, :correo, :celular, :campus, :tipo, :password, :active, :identificador 
-
-    CAMPUS_TYPES = %w[CA SJ LI AL SC].freeze
-    USER_TYPES = %w[AsistenteAdmin Estudiante Profesor ProfesorCoordinador].freeze 
-    validates :nombre_completo, :correo, :celular, :campus, :tipo, :password, :identificador, presence: true
-    validates :correo, format: { with: /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i }
-    validates :campus, inclusion: { in: CAMPUS_TYPES }
-    validates :tipo, inclusion: { in: USER_TYPES }
-
-    def initialize(attributes={})
-        super
-        @active = true
+    #Método para obtener el nombre completo del usuario
+    def full_name
+      "#{first_name} #{last_name}"
     end
-end
+  
+    # Método para verificar si el usuario es un profesor
+    def professor?
+      role == 'professor'
+    end
+  
+    # Método para verificar si el usuario es un administrador
+    def admin?
+      role == 'admin'
+    end
+
+  end
