@@ -1,0 +1,1 @@
+Rails.application.config.active_record.observers = :professor_observer
