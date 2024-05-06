@@ -1,22 +1,48 @@
-class User < ApplicationRecord
-  has_one :professor
-  has_one :administrative_assistant
+class User
+  include ActiveModel::Validations
+  include ActiveModel::Validations::Callbacks
 
-  enum role: { professor: 0, admin: 1 }
-  enum campus: { CA: 0, SJ: 1, AL: 2, LI: 3, SC: 4 }
+  attr_accessor :id, :email, :full_name, :role, :campus, :password
 
-  validates :email, presence: true, uniqueness: true
+  ROLES = { professor: 'professor', admin: 'admin' }
+  CAMPUSES = { CA: 'CA', SJ: 'SJ', AL: 'AL', LI: 'LI', SC: 'SC' }
+
+  validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :full_name, :role, :campus, :password, presence: true
   validates :password, length: { minimum: 8 }
+  validates :role, inclusion: { in: ROLES.values }
+  validates :campus, inclusion: { in: CAMPUSES.values }
 
-  # Método para verificar si el usuario es un profesor
+  def initialize(attributes = {})
+    @id = attributes[:id] || generate_unique_id
+    @email = attributes[:email]
+    @full_name = attributes[:full_name]
+    @role = attributes[:role]
+    @campus = attributes[:campus]
+    @password = attributes[:password]
+  end
+
   def professor?
-    role == 'professor'
+    role == ROLES[:professor]
   end
 
-  # Método para verificar si el usuario es un administrador
   def admin?
-    role == 'admin'
+    role == ROLES[:admin]
   end
 
+  def attributes
+    {
+      id: id,
+      email: email,
+      full_name: full_name,
+      role: role,
+      campus: campus,
+      password: password
+    }
+  end
+
+  def generate_unique_id
+    FirestoreDB.col('users').doc.document_id
+  end
+  
 end

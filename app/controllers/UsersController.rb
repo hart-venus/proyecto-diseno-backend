@@ -1,111 +1,106 @@
 class UsersController < ApplicationController
-  before_action :set_user, only: [:show, :edit, :update, :deactivate]
-
+  skip_forgery_protection 
   def index
-    @users = FirestoreDB.col('users').get.map { |doc| doc.data }  end
+    users = FirestoreDB.col('users').get
+    render json: users.map { |user| user.data.merge(id: user.document_id) }
+  end
 
   def show
-  end
-
-  def new
-    @user = User.new
-  end
-
-  def create
-    @user = User.new(user_params)
-
-    if @user.valid?
-      hashed_password = BCrypt::Password.create(@user.password)
-      user_data = {
-        email: @user.email,
-        full_name: @user.full_name,
-        role: @user.role,
-        campus: @user.campus,
-        password: hashed_password,
-        active: true
-      }
-
-      user_ref = FirestoreDB.col('users').add(user_data)
-      user_id = user_ref.document_id
-
-      redirect_to user_path(user_id), notice: 'User created successfully.'
-    else
-      render :new
-    end
-  end
-
-  def edit
-  end
-
-  def update
-    if @user.update(user_params)
-      user_data = {
-        email: @user.email,
-        full_name: @user.full_name,
-        role: @user.role,
-        campus: @user.campus
-      }
-
-      if params[:user][:password].present?
-        hashed_password = BCrypt::Password.create(params[:user][:password])
-        user_data[:password] = hashed_password
-      end
-
-      FirestoreDB.col('users').doc(@user.id).set(user_data, merge: true)
-
-      redirect_to user_path(@user.id), notice: 'User updated successfully.'
-    else
-      render :edit
-    end
-  end
-
-  def deactivate
-    FirestoreDB.col('users').doc(@user.id).update({ active: false })
-
-    redirect_to users_path, notice: 'User deactivated successfully.'
-  end
-
-  def activate
-    user_id = params[:user_id]
-    FirestoreDB.col('users').doc(user_id).update({ active: true })
-
-    redirect_to users_path, notice: 'User activated successfully.'
-  end
-
-  def find_by_email
-    email = params[:email]
-    user_data = FirestoreDB.col('users').where('email', '==', email).get.first&.data
-
-    if user_data
-      user = User.new(user_data)
-      user.id = user_data[:id]
-      render json: { user: user }, status: :ok
+    user_ref = FirestoreDB.col('users').doc(params[:id])
+    user = user_ref.get
+    if user.exists?
+      render json: user.data.merge(id: user.document_id)
     else
       render json: { error: 'User not found' }, status: :not_found
     end
   end
 
-  def find_by_id
-    user_id = params[:user_id]
-    user_data = FirestoreDB.col('users').doc(user_id).get.data
+  def create
+    user_data = {
+      email: user_params[:email],
+      full_name: user_params[:full_name],
+      role: user_params[:role],
+      campus: user_params[:campus],
+      password: encrypt_password(user_params[:password])
+    }
+    user_ref = FirestoreDB.col('users').add(user_data)
+    user = user_ref.get
+    render json: user.data.merge(id: user.document_id), status: :created
+  end
 
-    if user_data
-      user = User.new(user_data)
-      user.id = user_id
-      render json: { user: user }, status: :ok
+  def update
+    user_ref = FirestoreDB.col('users').doc(params[:id])
+    user = user_ref.get
+  
+    if user.exists?
+      user_data = user.data.dup  # Crear una copia mutable del hash
+      user_params.each do |key, value|
+        if user_data.key?(key.to_sym)
+          if key.to_sym == :password
+            user_data[key.to_sym] = encrypt_password(value)
+          else
+            user_data[key.to_sym] = value
+          end
+        end
+      end
+  
+      user_ref.set(user_data)
+      updated_user = user_ref.get
+      render json: updated_user.data.merge(id: updated_user.document_id)
     else
-      render json: { error: 'User not found' }, status: :not    end
+      render json: { error: 'User not found' }, status: :not_found
+    end
+  end
+
+  def destroy
+    user_ref = FirestoreDB.col('users').doc(params[:id])
+    user = user_ref.get
+    if user.exists?
+      user_ref.delete
+      head :no_content
+    else
+      render json: { error: 'User not found' }, status: :not_found
+    end
+  end
+
+  def create_user(user_params)
+    user_data = {
+      email: user_params[:email],
+      full_name: user_params[:full_name],
+      role: user_params[:role],
+      campus: user_params[:campus],
+      password: encrypt_password(user_params[:password])
+    }
+    user_ref = FirestoreDB.col('users').add(user_data)
+    user = user_ref.get
+    user.data.merge(id: user.document_id)
+  end
+  
+  def authenticate
+    email = params[:email]
+    password = params[:password]
+
+    user_query = FirestoreDB.col('users').where('email', '==', email).limit(1).get
+    user = user_query.first
+
+    if user.present? && password_match?(user.data[:password], password)
+      render json: { message: 'Authentication successful', user_id: user.document_id }
+    else
+      render json: { error: 'Invalid email or password' }, status: :unauthorized
+    end
   end
 
   private
 
-  def set_user
-    user_data = FirestoreDB.col('users').doc(params[:id]).get.data
-    @user = User.new(user_data)
-    @user.id = params[:id]
-  end
-
   def user_params
     params.require(:user).permit(:email, :full_name, :role, :campus, :password)
+  end
+
+  def encrypt_password(password)
+    BCrypt::Password.create(password)
+  end
+
+  def password_match?(encrypted_password, plain_password)
+    BCrypt::Password.new(encrypted_password) == plain_password
   end
 end
