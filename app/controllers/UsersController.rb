@@ -15,6 +15,8 @@ class UsersController < ApplicationController
     end
   end
 
+  # Este método se encarga de crear un nuevo usuario en la base de datos.
+  # Es el del endpoint POST /users
   def create
     existing_user = FirestoreDB.col('users').where('email', '==', user_params[:email]).get.first
     if existing_user.present?
@@ -34,6 +36,31 @@ class UsersController < ApplicationController
         render json: user_doc.data.merge(id: user_doc.document_id), status: :created
       else
         render json: { errors: user.errors.full_messages }, status: :unprocessable_entity
+      end
+    end
+  end
+
+  # Este crea un usuario en la base de datos
+  # No se usa con el endpoint sino de la clase ProfessorsController
+  def create_user(user_params)
+    existing_user = FirestoreDB.col('users').where('email', '==', user_params[:email]).get.first
+    if existing_user.present?
+      raise "Email already exists"
+    else
+      user = User.new(user_params)
+      if user.valid?
+        user_data = {
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          campus: user.campus,
+          password: encrypt_password(user.password)
+        }
+        user_ref = FirestoreDB.col('users').add(user_data)
+        user_doc = user_ref.get
+        user_doc.data.merge(id: user_doc.document_id)
+      else
+        raise "Invalid user data: #{user.errors.full_messages.join(', ')}"
       end
     end
   end
