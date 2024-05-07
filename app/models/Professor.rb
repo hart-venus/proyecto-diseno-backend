@@ -49,15 +49,4 @@ class Professor
     }
   end
 
-  def self.notify_observer(action, professor)
-    ProfessorObserver.instance.send(action, professor) if ProfessorObserver.instance.respond_to?(action)
-  end
-
-  before_create :notify_before_create
-
-  private
-
-  def notify_before_create
-    self.class.notify_observer(:before_create, self)
-  end
 end
