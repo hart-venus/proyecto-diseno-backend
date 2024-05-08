@@ -6,7 +6,7 @@ class Student
   
     attr_accessor :carne, :full_name, :email, :phone, :campus
   
-    validates :carne, presence: true, uniqueness: true, format: { with: /\A\d{4}-\d{4}\z/, message: 'must be in the format YYYY-NNNN' }
+    validates :carne, presence: true, format: { with: /\A\d{8}\z/, message: 'must be in the format YYYY-NNNN' }
     validates :full_name, presence: true, format: { with: /\A[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+(?: [A-Z][a-z]+)?\z/, message: 'must be in the format "Apellido1 Apellido2 Nombre [Nombre Adicional]"' }
     validates :email, presence: true, format: { with: /\A[\w+\-.]+@estudiantec\.cr\z/i, message: 'must be a valid @estudiantec.cr email address' }
     validates :phone, presence: true, format: { with: /\A\d{8}\z/, message: 'must be 8 digits' }
