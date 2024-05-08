@@ -23,6 +23,16 @@ class User
     @password = attributes[:password]
   end
 
+  def self.find_by_id(user_id)
+    user_doc = FirestoreDB.col('users').doc(user_id).get
+    if user_doc.exists?
+      user_data = user_doc.data
+      new(user_data.merge(id: user_doc.document_id))
+    else
+      nil
+    end
+  end
+
   # Método para verificar si el usuario es un profesor
   def professor?
     role == Constants::ROLES[:professor]

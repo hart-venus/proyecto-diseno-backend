@@ -22,7 +22,15 @@ Rails.application.routes.draw do
   get '/professors/:code/photo', to: 'professors#get_photo'
   put '/professors/:code', to: 'professors#update'
   put '/professors/:code/profile', to: 'professors#update_profile'
+  put '/professors/:code/toggle_coordinator', to: 'professors#toggle_coordinator'
   get '/professors/:code/user', to: 'professors#get_professor_user'
+
+  # Rutas para el controlador de Estudiantes
+  post '/students/upload', to: 'students#upload'
+  get '/students/by_name', to: 'students#index_by_name'
+  get '/students/by_carne', to: 'students#index_by_carne'
+  get '/students/by_campus', to: 'students#index_by_campus'
+
 end
 
 

@@ -1,17 +1,68 @@
 
-class Student < ApplicationRecord
-    enum campus: { CA: 0, SJ: 1, AL: 2, LI: 3, SC: 4 }
+class Student
+    include ActiveModel::Validations
+    include ActiveModel::Validations::Callbacks
+    include Constants
   
-    # Validaciones
-    validates :student_id, presence: true, uniqueness: true, format: { with: /\A\d{8}\z/, message: "must be 8 digits" }
-    validates :full_name, presence: true, format: { with: /\A[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?\z/, message: "must be in the format 'Apellido1 Apellido2 Nombre [Nombre Adicional]'" }
-    validates :email, presence: true, uniqueness: true, format: { with: /\A[\w+\-.]+@estudiantec\.cr\z/i, message: "must be in the format '@estudiantec.cr'" }
-    validates :phone, presence: true, format: { with: /\A\d{8}\z/, message: "must be 8 digits" }
-    validates :campus, presence: true
-
-    # Método para obtener el correo electrónico institucional del estudiante
-    def institutional_email
-        "#{student_id}@estudiantec.cr"
+    attr_accessor :carne, :full_name, :email, :phone, :campus
+  
+    validates :carne, presence: true, uniqueness: true, format: { with: /\A\d{4}-\d{4}\z/, message: 'must be in the format YYYY-NNNN' }
+    validates :full_name, presence: true, format: { with: /\A[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+(?: [A-Z][a-z]+)?\z/, message: 'must be in the format "Apellido1 Apellido2 Nombre [Nombre Adicional]"' }
+    validates :email, presence: true, format: { with: /\A[\w+\-.]+@estudiantec\.cr\z/i, message: 'must be a valid @estudiantec.cr email address' }
+    validates :phone, presence: true, format: { with: /\A\d{8}\z/, message: 'must be 8 digits' }
+    validates :campus, inclusion: { in: Constants::CAMPUSES.values, message: 'must be a valid campus' }
+  
+    def initialize(attributes = {})
+      @carne = attributes[:carne]
+      @full_name = attributes[:full_name]
+      @email = attributes[:email]
+      @phone = attributes[:phone]
+      @campus = attributes[:campus]
     end
-
+  
+    def save
+      if valid?
+        student_data = {
+          carne: @carne,
+          full_name: @full_name,
+          email: @email,
+          phone: @phone,
+          campus: @campus
+        }
+        FirestoreDB.col('students').doc(@carne).set(student_data)
+        true
+      else
+        false
+      end
+    end
+  
+    def self.find(carne)
+      student_doc = FirestoreDB.col('students').doc(carne).get
+      if student_doc.exists?
+        student_data = student_doc.data
+        new(student_data)
+      else
+        nil
+      end
+    end
+  
+    def update(attributes)
+      if valid?
+        student_data = {
+          full_name: attributes[:full_name] || @full_name,
+          email: attributes[:email] || @email,
+          phone: attributes[:phone] || @phone,
+          campus: attributes[:campus] || @campus
+        }
+        FirestoreDB.col('students').doc(@carne).update(student_data)
+        true
+      else
+        false
+      end
+    end
+  
+    def destroy
+      FirestoreDB.col('students').doc(@carne).delete
+      true
+    end
   end

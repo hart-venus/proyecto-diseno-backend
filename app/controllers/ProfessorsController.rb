@@ -44,6 +44,18 @@ class ProfessorsController < ApplicationController
         professor_ref = create_professor(professor)
         if professor_ref.present?
           send_welcome_email(professor, user[:email], user_data[:password])
+  
+          # Obtener el ID del usuario que realiza la modificación desde los parámetros
+          modified_by_user_id = params[:modified_by_user_id]
+  
+          # Guardar registro de modificación
+          ProfessorModification.create(
+            professor_code: professor.code,
+            modified_by: modified_by_user_id,
+            modification_type: 'Creación',
+            new_data: professor_ref.data
+          )
+  
           render json: professor_ref.data.merge(id: professor_ref.document_id), status: :created
         else
           render json: { error: 'Failed to create professor' }, status: :unprocessable_entity
@@ -122,6 +134,7 @@ class ProfessorsController < ApplicationController
     professor = FirestoreDB.col('professors').where('code', '==', code).get.first
     if professor.present?
       professor_ref = professor.ref
+      previous_data = professor.data
   
       email_changed = false
   
@@ -159,6 +172,18 @@ class ProfessorsController < ApplicationController
         # Enviar correo electrónico con las nuevas credenciales
         ProfessorMailer.credentials_email(updated_professor.data, user_doc.data[:email], new_password).deliver_now
       end
+  
+      # Obtener el ID del usuario que realiza la modificación desde los parámetros
+      modified_by_user_id = params[:modified_by_user_id]
+  
+      # Guardar registro de modificación
+      ProfessorModification.create(
+        professor_code: updated_professor.data[:code],
+        modified_by: modified_by_user_id,
+        modification_type: 'Actualización',
+        previous_data: previous_data,
+        new_data: updated_professor.data
+      )
   
       render json: updated_professor.data.merge(id: updated_professor.document_id)
     else
@@ -244,46 +269,39 @@ class ProfessorsController < ApplicationController
     false
   end
 
-  def upload_photo(photo)
-    file_path = "professors/#{SecureRandom.uuid}/#{photo.original_filename}"
-    bucket_name = 'projecto-diseno-backend.appspot.com'
-    bucket = FirebaseStorage.bucket(bucket_name)
-    file_obj = bucket.create_file(photo.tempfile, file_path, content_type: photo.content_type)
-    file_obj.public_url
-  end
-
-  def get_photo
+  def toggle_coordinator
     code = params[:code]
-    validate_code(code)
-
     professor = FirestoreDB.col('professors').where('code', '==', code).get.first
+    
     if professor.present?
-      photo_url = professor.data[:photo_url]
-      if photo_url.present?
-        redirect_to photo_url
+      professor_ref = professor.ref
+      
+      if professor.data[:coordinator]
+        # Desactivar el estado de coordinador
+        professor_ref.update({ coordinator: false })
       else
-        render json: { error: 'Professor does not have a photo' }, status: :not_found
+        # Verificar si ya existe otro profesor coordinador en el mismo campus
+        campus = professor.data[:campus]
+        existing_coordinator = FirestoreDB.col('professors')
+                                           .where('campus', '==', campus)
+                                           .where('coordinator', '==', true)
+                                           .get.first
+        
+        if existing_coordinator.present?
+          render json: { error: 'Another professor is already assigned as coordinator for this campus' }, status: :unprocessable_entity
+          return
+        end
+        
+        # Activar el estado de coordinador
+        professor_ref.update({ coordinator: true })
       end
+      
+      # Obtener el profesor actualizado desde Firestore
+      updated_professor = professor_ref.get
+      
+      render json: updated_professor.data.merge(id: updated_professor.document_id)
     else
       render json: { error: 'Professor not found' }, status: :not_found
-    end
-  end
-
-  def generate_unique_code(campus)
-    campus_key = campus.to_sym
-    if Professor::CAMPUSES.key?(campus_key)
-      campus_code = Professor::CAMPUSES[campus_key]
-      professors = FirestoreDB.col('professors').where('campus', '==', campus_code).order('code', 'desc').limit(1).get.to_a
-      if professors.empty?
-        "#{campus_code}-01"
-      else
-        last_professor_code = professors.first.data[:code]
-        last_counter = last_professor_code.split('-').last.to_i
-        new_counter = format('%02d', last_counter + 1)
-        "#{campus_code}-#{new_counter}"
-      end
-    else
-      raise ArgumentError, 'Invalid campus'
     end
   end
 
@@ -326,6 +344,23 @@ class ProfessorsController < ApplicationController
     end
   end
   
+  def get_photo
+    code = params[:code]
+    validate_code(code)
+
+    professor = FirestoreDB.col('professors').where('code', '==', code).get.first
+    if professor.present?
+      photo_url = professor.data[:photo_url]
+      if photo_url.present?
+        redirect_to photo_url
+      else
+        render json: { error: 'Professor does not have a photo' }, status: :not_found
+      end
+    else
+      render json: { error: 'Professor not found' }, status: :not_found
+    end
+  end
+
   def get_professor_by_email
     email = params[:email]
     validate_email(email)
@@ -401,9 +436,36 @@ class ProfessorsController < ApplicationController
       render json: { error: 'Professor not found' }, status: :not_found
     end
   end
+
   private
   def encrypt_password(password)
     BCrypt::Password.create(password)
+  end
+
+  def generate_unique_code(campus)
+    campus_key = campus.to_sym
+    if Professor::CAMPUSES.key?(campus_key)
+      campus_code = Professor::CAMPUSES[campus_key]
+      professors = FirestoreDB.col('professors').where('campus', '==', campus_code).order('code', 'desc').limit(1).get.to_a
+      if professors.empty?
+        "#{campus_code}-01"
+      else
+        last_professor_code = professors.first.data[:code]
+        last_counter = last_professor_code.split('-').last.to_i
+        new_counter = format('%02d', last_counter + 1)
+        "#{campus_code}-#{new_counter}"
+      end
+    else
+      raise ArgumentError, 'Invalid campus'
+    end
+  end
+
+  def upload_photo(photo)
+    file_path = "professors/#{SecureRandom.uuid}/#{photo.original_filename}"
+    bucket_name = 'projecto-diseno-backend.appspot.com'
+    bucket = FirebaseStorage.bucket(bucket_name)
+    file_obj = bucket.create_file(photo.tempfile, file_path, content_type: photo.content_type)
+    file_obj.public_url
   end
 
 end

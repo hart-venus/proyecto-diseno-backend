@@ -72,6 +72,8 @@ end
 gem "mail"
 gem "actionmailer"
 
+gem 'roo'
+
 group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
