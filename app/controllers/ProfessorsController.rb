@@ -1,6 +1,7 @@
 class ProfessorsController < ApplicationController
   skip_forgery_protection
 
+  ## Crear Profesor
   def create
     professor_data = {
       code: generate_unique_code(params[:campus]),
@@ -95,6 +96,145 @@ class ProfessorsController < ApplicationController
     end
   end
 
+  ## Modificar el usuario para la asistente administrativa (Si lo modifica se reinicia la contraseña del profesor)
+  def update
+    code = params[:code]
+    professor_data = {
+      full_name: params[:full_name],
+      email: params[:email],
+      office_phone: params[:office_phone],
+      cellphone: params[:cellphone],
+      status: params[:status]
+    }
+  
+    # Convertir el valor de 'coordinator' a booleano
+    if params[:coordinator].present?
+      coordinator = ActiveModel::Type::Boolean.new.cast(params[:coordinator])
+      professor_data[:coordinator] = coordinator
+    end
+  
+    photo = params[:photo]
+    if photo.present?
+      photo_url = upload_photo(photo)
+      professor_data[:photo_url] = photo_url
+    end
+  
+    professor = FirestoreDB.col('professors').where('code', '==', code).get.first
+    if professor.present?
+      professor_ref = professor.ref
+  
+      email_changed = false
+  
+      # Verificar si el correo electrónico ya está en uso por otro profesor
+      if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
+        existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
+        if existing_professor.present?
+          render json: { error: 'Email already exists' }, status: :unprocessable_entity
+          return
+        else
+          email_changed = true
+        end
+      end
+  
+      # Actualizar los atributos del profesor
+      professor_data.each do |key, value|
+        professor_ref.update({ key => value }) if value.present?
+      end
+  
+      # Obtener el profesor actualizado desde Firestore
+      updated_professor = professor_ref.get
+  
+      # Obtener el usuario asociado al profesor
+      user_id = updated_professor.data[:user_id]
+      user_doc = FirestoreDB.col('users').doc(user_id).get
+  
+      if user_doc.exists?
+        # Generar una nueva contraseña para el usuario
+        new_password = SecureRandom.base64(10)
+        encrypted_password = encrypt_password(new_password)
+  
+        # Actualizar la contraseña del usuario en Firestore
+        user_doc.ref.update({ password: encrypted_password })
+  
+        # Enviar correo electrónico con las nuevas credenciales
+        ProfessorMailer.credentials_email(updated_professor.data, user_doc.data[:email], new_password).deliver_now
+      end
+  
+      render json: updated_professor.data.merge(id: updated_professor.document_id)
+    else
+      render json: { error: 'Professor not found' }, status: :not_found
+    end
+  end
+  
+  ## Para modificar el perfil del profesor por el mismo profesor
+  def update_profile
+    code = params[:code]
+    professor_data = {
+      full_name: params[:full_name],
+      email: params[:email],
+      office_phone: params[:office_phone],
+      cellphone: params[:cellphone],
+      status: params[:status]
+    }
+  
+    new_password = params[:new_password]
+  
+    photo = params[:photo]
+    if photo.present?
+      photo_url = upload_photo(photo)
+      professor_data[:photo_url] = photo_url
+    end
+  
+    professor = FirestoreDB.col('professors').where('code', '==', code).get.first
+    if professor.present?
+      professor_ref = professor.ref
+  
+      email_changed = false
+  
+      # Verificar si el correo electrónico ya está en uso por otro profesor
+      if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
+        existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
+        if existing_professor.present?
+          render json: { error: 'Email already exists' }, status: :unprocessable_entity
+          return
+        else
+          email_changed = true
+        end
+      end
+  
+      # Actualizar los atributos del profesor
+      professor_data.each do |key, value|
+        professor_ref.update({ key => value }) if value.present?
+      end
+  
+      # Obtener el profesor actualizado desde Firestore
+      updated_professor = professor_ref.get
+  
+      # Obtener el usuario asociado al profesor
+      user_id = updated_professor.data[:user_id]
+      user_doc = FirestoreDB.col('users').doc(user_id).get
+  
+      if user_doc.exists?
+        if new_password.present?
+          # Encriptar la nueva contraseña
+          encrypted_password = encrypt_password(new_password)
+  
+          # Actualizar la contraseña del usuario en Firestore
+          user_doc.ref.update({ password: encrypted_password })
+        end
+  
+        if email_changed
+          # Enviar correo electrónico con las credenciales actualizadas
+          ProfessorMailer.credentials_email(updated_professor.data, user_doc.data[:email], new_password).deliver_now
+        end
+      end
+  
+      render json: updated_professor.data.merge(id: updated_professor.document_id)
+    else
+      render json: { error: 'Professor not found' }, status: :not_found
+    end
+  end
+
   def send_welcome_email(professor, user_email, user_password)
     ProfessorMailer.welcome_email(professor, user_email, user_password).deliver_now
     true
@@ -150,19 +290,27 @@ class ProfessorsController < ApplicationController
   #### Métodos Get
 
   def search
-    query = params[:query].downcase
+    query = params[:query]&.downcase
+  
     if query.present?
       professors = FirestoreDB.col('professors').get.to_a
       matching_professors = professors.select do |prof|
         prof.data.values.any? { |value| value.to_s.downcase.include?(query) }
       end
+  
       if matching_professors.empty?
-        render json: { message: 'No professors found matching the query' }, status: :not_found
+        render json: { message: 'No se encontraron profesores que coincidan con la búsqueda' }, status: :not_found
       else
         render json: matching_professors.map { |prof| prof.data.merge(id: prof.document_id) }
       end
     else
-      render json: { error: 'Query parameter is missing' }, status: :bad_request
+      professors = FirestoreDB.col('professors').get.to_a
+  
+      if professors.empty?
+        render json: { message: 'No se encontraron profesores' }, status: :not_found
+      else
+        render json: professors.map { |prof| prof.data.merge(id: prof.document_id) }
+      end
     end
   end
   
@@ -253,53 +401,9 @@ class ProfessorsController < ApplicationController
       render json: { error: 'Professor not found' }, status: :not_found
     end
   end
-
-   #### Métodos Put
-
-   def update
-    code = params[:code]
-    professor_data = {
-      full_name: params[:full_name],
-      email: params[:email],
-      office_phone: params[:office_phone],
-      cellphone: params[:cellphone],
-      status: params[:status]
-    }
-  
-    photo = params[:photo]
-    if photo.present?
-      photo_url = upload_photo(photo)
-      professor_data[:photo_url] = photo_url
-    end
-  
-    professor = FirestoreDB.col('professors').where('code', '==', code).get.first
-    if professor.present?
-      professor_data.each do |key, value|
-        professor.ref.update(key, value) if value.present?
-      end
-      render json: professor.data.merge(id: professor.document_id)
-    else
-      render json: { error: 'Professor not found' }, status: :not_found
-    end
-  end
-
   private
-
-  def validate_code(code)
-    unless code.present?
-      render json: { error: 'Code parameter is missing' }, status: :bad_request
-    end
+  def encrypt_password(password)
+    BCrypt::Password.create(password)
   end
 
-  def validate_email(email)
-    unless email =~ URI::MailTo::EMAIL_REGEXP
-      render json: { error: 'Invalid email format' }, status: :bad_request
-    end
-  end
-
-  def validate_campus(campus)
-    unless Professor::CAMPUSES.value?(campus)
-      render json: { error: 'Invalid campus' }, status: :bad_request
-    end
-  end
 end
