@@ -1,18 +1,19 @@
 class User
   include ActiveModel::Validations
   include ActiveModel::Validations::Callbacks
+  include Constants
 
+  # Atributos de la clase User
   attr_accessor :id, :email, :full_name, :role, :campus, :password
 
-  ROLES = { professor: 'professor', admin: 'admin' }
-  CAMPUSES = { CA: 'CA', SJ: 'SJ', AL: 'AL', LI: 'LI', SC: 'SC' }
-
+  # Validaciones para los atributos de User
   validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :full_name, :role, :campus, :password, presence: true
   validates :password, length: { minimum: 8 }
-  validates :role, inclusion: { in: ROLES.values }
-  validates :campus, inclusion: { in: CAMPUSES.values }
+  validates :role, inclusion: { in: Constants::ROLES.values }
+  validates :campus, inclusion: { in: Constants::CAMPUSES.values }
 
+  # Constructor de la clase User
   def initialize(attributes = {})
     @id = attributes[:id] || generate_unique_id
     @email = attributes[:email]
@@ -22,14 +23,17 @@ class User
     @password = attributes[:password]
   end
 
+  # Método para verificar si el usuario es un profesor
   def professor?
-    role == ROLES[:professor]
+    role == Constants::ROLES[:professor]
   end
 
+  # Método para verificar si el usuario es un administrador
   def admin?
-    role == ROLES[:admin]
+    role == Constants::ROLES[:admin]
   end
 
+  # Método para obtener los atributos del usuario como un hash
   def attributes
     {
       id: id,
@@ -41,8 +45,10 @@ class User
     }
   end
 
+  private
+
+  # Método para generar un ID único para el usuario
   def generate_unique_id
     FirestoreDB.col('users').doc.document_id
   end
-  
 end
