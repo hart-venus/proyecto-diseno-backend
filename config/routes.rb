@@ -27,9 +27,16 @@ Rails.application.routes.draw do
 
   # Rutas para el controlador de Estudiantes
   post '/students/upload', to: 'students#upload'
+  get '/students', to: 'students#index'
   get '/students/by_name', to: 'students#index_by_name'
   get '/students/by_carne', to: 'students#index_by_carne'
   get '/students/by_campus', to: 'students#index_by_campus'
+  get '/students/search', to: 'students#fuzzy_search'
+  get '/students/:id', to: 'students#show'
+  put '/students/:id', to: 'students#update'
+  delete '/students/:id', to: 'students#destroy'
+  get '/students/export', to: 'students#export_to_excel'
+
 
 end
 
