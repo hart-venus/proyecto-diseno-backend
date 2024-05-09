@@ -71,8 +71,10 @@ end
 
 gem "mail"
 gem "actionmailer"
-
 gem 'roo'
+gem 'rubyzip', '>= 1.2.1'
+gem 'axlsx', git: 'https://github.com/randym/axlsx.git', ref: 'c8ac844'
+gem 'caxlsx_rails'
 
 group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]

@@ -1,4 +1,5 @@
 require 'roo'
+require 'axlsx'
 
 # app/controllers/students_controller.rb
 class StudentsController < ApplicationController
@@ -148,7 +149,7 @@ class StudentsController < ApplicationController
     if query.present?
       students = FirestoreDB.col('students').get.select do |student_doc|
         student = Student.new(student_doc.data.merge(id: student_doc.document_id))
-        student.carne.downcase.include?(query) ||
+        student.carne.to_s.include?(query) ||
         student.last_name1.downcase.include?(query) ||
         student.last_name2.downcase.include?(query) ||
         student.name1.downcase.include?(query) ||
@@ -168,6 +169,59 @@ class StudentsController < ApplicationController
     end
   end
 
+
+
+  def export_to_excel
+    campus = params[:campus]
+    
+    if campus.present?
+      students = FirestoreDB.col('students').where('campus', '==', campus).get.map { |student_doc| Student.new(student_doc.data.merge(id: student_doc.document_id)) }
+    else
+      students = FirestoreDB.col('students').get.map { |student_doc| Student.new(student_doc.data.merge(id: student_doc.document_id)) }
+    end
+    
+    package = Axlsx::Package.new
+    workbook = package.workbook
+    
+    if campus.present?
+      workbook.add_worksheet(name: "Estudiantes - #{campus}") do |sheet|
+        sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
+        
+        students.each do |student|
+          sheet.add_row [
+            student.carne, 
+            student.full_name,
+            student.email,
+            student.phone,
+            student.campus
+          ]
+        end
+      end
+    else
+      Constants::CAMPUSES.values.each do |campus_value|
+        campus_students = students.select { |student| student.campus == campus_value }
+        
+        next if campus_students.empty?
+        
+        workbook.add_worksheet(name: "Estudiantes - #{campus_value}") do |sheet|
+          sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
+          
+          campus_students.each do |student|
+            sheet.add_row [
+              student.carne, 
+              student.full_name,
+              student.email,
+              student.phone,
+              student.campus
+            ]
+          end
+        end
+      end
+    end
+
+    send_data package.to_stream.read, type: "application/xlsx", filename: "estudiantes.xlsx"
+  end
+
   # Detalles de un estudiante
   def show
     student = Student.find(params[:id])
@@ -178,61 +232,7 @@ class StudentsController < ApplicationController
     end
   end
 
-  def export_to_excel
-    campus = params[:campus]
-  
-    if campus.present?
-      students = Student.all.select { |student| student.campus == campus }
-      export_students_to_excel(students, campus)
-    else
-      campuses = Student.all.map(&:campus).uniq
-      export_all_campuses_to_excel(campuses)
-    end
-  end
-  
   private
-  
-  def export_students_to_excel(students, campus)
-    package = Axlsx::Package.new
-    workbook = package.workbook
-  
-    workbook.add_worksheet(name: campus) do |sheet|
-      sheet.add_row ['Carné', 'Apellido 1', 'Apellido 2', 'Nombre 1', 'Nombre 2', 'Email', 'Teléfono']
-  
-      students.each do |student|
-        sheet.add_row [student.carne, student.last_name1, student.last_name2, student.name1, student.name2, student.email, student.phone]
-      end
-    end
-  
-    send_excel_file(package, "estudiantes_#{campus}.xlsx")
-  end
-  
-  def export_all_campuses_to_excel(campuses)
-    package = Axlsx::Package.new
-    workbook = package.workbook
-  
-    campuses.each do |campus|
-      students = Student.all.select { |student| student.campus == campus }
-  
-      workbook.add_worksheet(name: campus) do |sheet|
-        sheet.add_row ['Carné', 'Apellido 1', 'Apellido 2', 'Nombre 1', 'Nombre 2', 'Email', 'Teléfono']
-  
-        students.each do |student|
-          sheet.add_row [student.carne, student.last_name1, student.last_name2, student.name1, student.name2, student.email, student.phone]
-        end
-      end
-    end
-  
-    send_excel_file(package, 'estudiantes_todos_los_campus.xlsx')
-  end
-  
-  def send_excel_file(package, filename)
-    send_data package.to_stream.read, type: 'application/xlsx', filename: filename
-  end
-
-
-  private
-
   def student_response(student)
     {
       carne: student.carne,
