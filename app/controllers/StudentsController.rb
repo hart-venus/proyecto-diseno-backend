@@ -169,57 +169,61 @@ class StudentsController < ApplicationController
     end
   end
 
-
-
   def export_to_excel
     campus = params[:campus]
     
     if campus.present?
-      students = FirestoreDB.col('students').where('campus', '==', campus).get.map { |student_doc| Student.new(student_doc.data.merge(id: student_doc.document_id)) }
+      # Si se proporciona un campus específico, obtener los estudiantes de ese campus
+      students = FirestoreDB.col('students').where('campus', '==', campus).get.map do |student_doc|
+        Student.new(student_doc.data.merge(id: student_doc.document_id))
+      end
     else
-      students = FirestoreDB.col('students').get.map { |student_doc| Student.new(student_doc.data.merge(id: student_doc.document_id)) }
+      # Si no se proporciona un campus, obtener todos los estudiantes
+      students = FirestoreDB.col('students').get.map do |student_doc|
+        Student.new(student_doc.data.merge(id: student_doc.document_id))
+      end
     end
     
+    # Crear un nuevo paquete de Excel
     package = Axlsx::Package.new
     workbook = package.workbook
     
     if campus.present?
-      workbook.add_worksheet(name: "Estudiantes - #{campus}") do |sheet|
-        sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
-        
-        students.each do |student|
-          sheet.add_row [
-            student.carne, 
-            student.full_name,
-            student.email,
-            student.phone,
-            student.campus
-          ]
-        end
-      end
+      # Si se proporciona un campus, crear una hoja de cálculo para ese campus
+      create_worksheet(workbook, "Estudiantes - #{campus}", students)
     else
-      Constants::CAMPUSES.values.each do |campus_value|
+      # Si no se proporciona un campus, crear una hoja de cálculo para cada campus
+      Constants::CAMPUSES.each do |campus_key, campus_value|
         campus_students = students.select { |student| student.campus == campus_value }
         
+        # Saltar al siguiente campus si no hay estudiantes para el campus actual
         next if campus_students.empty?
         
-        workbook.add_worksheet(name: "Estudiantes - #{campus_value}") do |sheet|
-          sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
-          
-          campus_students.each do |student|
-            sheet.add_row [
-              student.carne, 
-              student.full_name,
-              student.email,
-              student.phone,
-              student.campus
-            ]
-          end
-        end
+        create_worksheet(workbook, "Estudiantes - #{campus_value}", campus_students)
       end
     end
-
+  
+    # Enviar el archivo Excel como respuesta
     send_data package.to_stream.read, type: "application/xlsx", filename: "estudiantes.xlsx"
+  end
+  
+  def create_worksheet(workbook, name, students)
+    # Crear una nueva hoja de cálculo con el nombre especificado
+    workbook.add_worksheet(name: name) do |sheet|
+      # Agregar la fila de encabezado con los títulos de columna
+      sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
+      
+      # Agregar una fila por cada estudiante
+      students.each do |student|
+        sheet.add_row [
+          student.carne,
+          student.full_name,
+          student.email,
+          student.phone,
+          student.campus
+        ]
+      end
+    end
   end
 
   # Detalles de un estudiante
