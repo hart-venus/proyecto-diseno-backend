@@ -20,7 +20,7 @@ class Activity
         file = attributes[:poster]
         if file.present?
           file_path = "activity_posters/#{SecureRandom.uuid}/#{file.original_filename}"
-          bucket_name = 'your-bucket-name'
+          bucket_name = 'projecto-diseno-backend.appspot.com'
           bucket = FirebaseStorage.bucket(bucket_name)
           file_obj = bucket.create_file(file.tempfile, file_path, content_type: 'application/pdf')
           activity.poster_url = file_obj.public_url
