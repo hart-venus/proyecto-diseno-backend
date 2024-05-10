@@ -1,5 +1,8 @@
 class WorkPlansController < ApplicationController
   skip_forgery_protection
+  before_action :set_user
+  before_action :validate_coordinator, only: [:create, :update]
+
   def index
     work_plans = FirestoreDB.col('work_plans').get
     @work_plans = work_plans.map { |doc| WorkPlan.new(doc.data.merge(id: doc.document_id)) }
@@ -17,7 +20,7 @@ class WorkPlansController < ApplicationController
   end
 
   def create
-    @work_plan = WorkPlan.create(work_plan_params)
+    @work_plan = WorkPlan.create(work_plan_params.merge(coordinator_id: @user.id))
     if @work_plan
       render json: @work_plan, status: :created
     else
@@ -28,14 +31,12 @@ class WorkPlansController < ApplicationController
   def update
     work_plan_ref = FirestoreDB.col('work_plans').doc(params[:id])
     work_plan_doc = work_plan_ref.get
-    
     if work_plan_doc.exists?
       work_plan_data = work_plan_doc.data.dup
-      work_plan_params.slice(:coordinator_id, :start_date, :end_date).each do |key, value|
+      work_plan_params.slice(:start_date, :end_date).each do |key, value|
         work_plan_data[key] = value
       end
-      
-      @work_plan = WorkPlan.new(work_plan_data.merge(id: params[:id]))
+      @work_plan = WorkPlan.new(work_plan_data.merge(id: params[:id], coordinator_id: @user.id))
       if @work_plan.valid?
         work_plan_ref.set(work_plan_data)
         updated_work_plan_doc = work_plan_ref.get
@@ -67,13 +68,39 @@ class WorkPlansController < ApplicationController
     end
   end
 
+  def current
+    today = Date.today
+    work_plans = FirestoreDB.col('work_plans')
+                            .where('start_date', '<=', today)
+                            .where('end_date', '>=', today)
+                            .get
+
+    @current_work_plan = work_plans.map { |doc| WorkPlan.new(doc.data.merge(id: doc.document_id)) }.first
+
+    if @current_work_plan
+      render json: @current_work_plan
+    else
+      render json: { error: 'No current work plan found' }, status: :not_found
+    end
+  end
+
   private
 
   def work_plan_params
-    params.require(:work_plan).permit(:coordinator_id, :start_date, :end_date)
+    params.require(:work_plan).permit(:start_date, :end_date)
   end
 
   def activity_params
     params.permit(:status, :responsible_id)
+  end
+
+  def validate_coordinator
+    unless @user&.professor? && @user&.coordinator?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    end
+  end
+
+  def set_user
+    @user = User.find_by_id(params[:user_id])
   end
 end

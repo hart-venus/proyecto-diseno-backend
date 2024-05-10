@@ -46,7 +46,7 @@ Rails.application.routes.draw do
   get '/work_plans/:id/activities', to: 'work_plans#activities'
   
   # Actividades
-  post '/work_plans/:work_plan_id/activities', to: 'activities#create'
+  post '/activities', to: 'activities#create'
 
 
 end
