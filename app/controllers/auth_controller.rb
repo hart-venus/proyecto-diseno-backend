@@ -38,7 +38,7 @@ class AuthController < ApplicationController
 
         if user && user[:active]
             if BCrypt::Password.new(user[:password]) == params[:password]
-                token = JWT.encode({ user_id: user.document_id }, ENV['JWT_SECRET'], 'HS256')
+                token = JWT.encode({ user_id: user.document_id }, 'secret123', 'HS256')
                 render json: { token: token }
             else
                 render json: { message: 'Invalid email or password' }, status: :unauthorized
