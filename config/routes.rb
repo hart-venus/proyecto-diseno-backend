@@ -37,16 +37,6 @@ Rails.application.routes.draw do
   put '/students/:id', to: 'students#update'
   delete '/students/:id', to: 'students#destroy'
 
-  # Rutas para ActivitiesController
-  get '/activities', to: 'activities#index'
-  get '/activities/:id', to: 'activities#show'
-  post '/activities', to: 'activities#create'
-  put '/activities/:id', to: 'activities#update'
-  patch '/activities/:id/mark_as_notified', to: 'activities#mark_as_notified'
-  patch '/activities/:id/mark_as_completed', to: 'activities#mark_as_completed'
-  patch '/activities/:id/cancel', to: 'activities#cancel'
-  get '/activities/:id/comments', to: 'activities#comments'
-
   # Planes de trabajo
   get '/work_plans', to: 'work_plans#index'
   get '/work_plans/:id', to: 'work_plans#show'
@@ -56,13 +46,15 @@ Rails.application.routes.draw do
   get '/work_plans/:id/activities', to: 'work_plans#activities'
   get '/work_plans/current', to: 'work_plans#current'
 
-  # Rutas para ActivityCommentsController
-  get '/activities/:activity_id/comments', to: 'activity_comments#index'
-  get '/activities/:activity_id/comments/:id', to: 'activity_comments#show'
-  post '/activities/:activity_id/comments', to: 'activity_comments#create'
-  put '/activities/:activity_id/comments/:id', to: 'activity_comments#update'
-  delete '/activities/:activity_id/comments/:id', to: 'activity_comments#destroy'
-  get '/activities/:activity_id/comments/:id/replies', to: 'activity_comments#replies'
+  # Endpoints para actividades (Activities)
+  get '/activities', to: 'activities#index'
+  get '/activities/:id', to: 'activities#show'
+  post '/activities', to: 'activities#create'
+  put '/activities/:id', to: 'activities#update'
+  post '/activities/:id/mark_as_notified', to: 'activities#mark_as_notified'
+  post '/activities/:id/mark_as_completed', to: 'activities#mark_as_completed'
+  post '/activities/:id/cancel', to: 'activities#cancel'
+  get '/activities/:id/comments', to: 'activities#comments'
 
 end
 
