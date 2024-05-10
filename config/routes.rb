@@ -37,6 +37,17 @@ Rails.application.routes.draw do
   put '/students/:id', to: 'students#update'
   delete '/students/:id', to: 'students#destroy'
 
+  # Planes de trabajo
+  get '/work_plans', to: 'work_plans#index'
+  get '/work_plans/:id', to: 'work_plans#show'
+  post '/work_plans', to: 'work_plans#create'
+  put '/work_plans/:id', to: 'work_plans#update'
+  delete '/work_plans/:id', to: 'work_plans#destroy'
+  get '/work_plans/:id/activities', to: 'work_plans#activities'
+  
+  # Actividades
+  post '/work_plans/:work_plan_id/activities', to: 'activities#create'
+
 
 end
 
