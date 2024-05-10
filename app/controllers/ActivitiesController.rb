@@ -228,4 +228,18 @@ class ActivitiesController < ApplicationController
     file_obj = bucket.create_file(file.tempfile, file_path, content_type: file.content_type)
     file_obj.public_url
   end
+
+  def comments
+    activity_id = params[:id]
+    activity_doc = FirestoreDB.col('activities').doc(activity_id).get
+
+    if activity_doc.exists?
+      activity = Activity.new(activity_doc.data.merge(id: activity_doc.document_id))
+      comments = activity.comments
+      render json: comments
+    else
+      render json: { error: 'Activity not found' }, status: :not_found
+    end
+  end
+
 end

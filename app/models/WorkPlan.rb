@@ -2,7 +2,7 @@ class WorkPlan
   include ActiveModel::Model
   include ActiveModel::Validations
 
-  attr_accessor :id, :coordinator_id, :start_date, :end_date, :activities
+  attr_accessor :id, :coordinator_id, :start_date, :end_date
 
   validates :coordinator_id, :start_date, :end_date, presence: true
   validate :end_date_after_start_date
@@ -22,25 +22,23 @@ class WorkPlan
     {
       coordinator_id: coordinator_id,
       start_date: start_date,
-      end_date: end_date,
-      activities: activities || []
+      end_date: end_date
     }
-  end
-
-  def add_activity(activity)
-    self.activities ||= []
-    self.activities << activity
-    FirestoreDB.col('work_plans').doc(id).update(activities: activities)
   end
 
   def get_activities(filters = {})
     query = FirestoreDB.col('activities').where('work_plan_id', '==', id)
-
     filters.each do |field, value|
       query = query.where(field.to_s, '==', value)
     end
+    activities = query.get.map { |doc| Activity.new(doc.data.merge(id: doc.document_id)) }
+    activities.empty? ? nil : activities
+  end
 
-    query.get.map { |doc| Activity.new(doc.data.merge(id: doc.document_id)) }
+  def next_activity
+    today = Date.today
+    upcoming_activities = get_activities&.select { |activity| activity.date_time.to_date >= today }
+    upcoming_activities&.min_by { |activity| activity.date_time }
   end
 
   private

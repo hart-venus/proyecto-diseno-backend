@@ -33,4 +33,12 @@ class Activity
         cancellation_date: cancellation_date
       }
     end
+
+    def comments
+      FirestoreDB.col('activity_comments')
+                 .where('activity_id', '==', id)
+                 .get
+                 .map { |doc| ActivityComment.new(doc.data.merge(id: doc.document_id)) }
+    end
+    
   end
