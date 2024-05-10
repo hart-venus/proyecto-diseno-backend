@@ -1,18 +1,44 @@
-class Activity 
-    include ActiveModel::Model 
-    attr_accessor :indole, :estado, :semana, :nombre, :fecha, :responsables, :recordatorios, :presencial, :enlace, :plan_ref, :active
-
-    INDOLE_TYPES = %w[Orientadora Motivacional Apoyadora Tecnica Recreacional].freeze
-    ESTADO_TYPES = %w[Planeada Notificada Realizada Cancelada].freeze
-
-    validates :indole, :semana, :nombre, :fecha, :presencial, :plan_ref, presence: true
-    validates :indole, inclusion: { in: INDOLE_TYPES }
-    validates :estado, inclusion: { in: ESTADO_TYPES }
-    validates :presencial, inclusion: { in: [true, false] }
-
-    def initialize(attributes={})
-        super
-        @estado = 'Planeada'
-        @active = true
+class Activity
+    include ActiveModel::Model
+    include ActiveModel::Validations
+  
+    attr_accessor :id, :work_plan_id, :week, :activity_type, :name, :description, :date_time,
+                  :responsible_professors, :announcement_days, :reminder_days, :location,
+                  :remote_link, :poster_url, :status, :cancellation_reason, :cancellation_date
+  
+    validates :work_plan_id, :week, :activity_type, :name, :date_time, :responsible_professors,
+              :announcement_days, :reminder_days, :location, presence: true
+    validates :week, inclusion: { in: 1..16 }
+    validates :activity_type, inclusion: { in: ['Orientadoras', 'Motivacionales', 'De apoyo a la vida estudiantil', 'De orden técnico', 'De recreación'] }
+    validates :status, inclusion: { in: ['PLANEADA', 'NOTIFICADA', 'REALIZADA', 'CANCELADA'] }
+    validates :announcement_days, :reminder_days, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+    validates :poster_url, format: { with: URI::DEFAULT_PARSER.make_regexp, message: 'must be a valid URL' }, allow_blank: true
+  
+    def attributes
+      {
+        work_plan_id: work_plan_id,
+        week: week,
+        activity_type: activity_type,
+        name: name,
+        description: description,
+        date_time: date_time,
+        responsible_professors: responsible_professors,
+        announcement_days: announcement_days,
+        reminder_days: reminder_days,
+        location: location,
+        remote_link: remote_link,
+        poster_url: poster_url,
+        status: status,
+        cancellation_reason: cancellation_reason,
+        cancellation_date: cancellation_date
+      }
     end
-end
+
+    def comments
+      FirestoreDB.col('activity_comments')
+                 .where('activity_id', '==', id)
+                 .get
+                 .map { |doc| ActivityComment.new(doc.data.merge(id: doc.document_id)) }
+    end
+    
+  end
