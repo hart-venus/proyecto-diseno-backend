@@ -1,4 +1,4 @@
-class ActivityCommentsController < ApplicationController
+class ActivityComentsController < ApplicationController
     skip_forgery_protection
   
     def index
