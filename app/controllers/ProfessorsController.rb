@@ -250,24 +250,28 @@ class ProfessorsController < ApplicationController
       
       if user_doc.exists?
         user_data = user_doc.data
+        updated_user_data = {}
         
         if new_password.present?
           # Encriptar la nueva contraseña
           encrypted_password = encrypt_password(new_password)
           
-          # Actualizar la contraseña del usuario en Firestore
-          user_data[:password] = encrypted_password
+          # Agregar la contraseña actualizada al nuevo hash
+          updated_user_data[:password] = encrypted_password
         end
         
         if email_changed
-          user_data[:email] = professor_data[:email]
+          updated_user_data[:email] = professor_data[:email]
         end
         
-        user_doc.ref.set(user_data)
+        # Combinar los datos existentes con los datos actualizados
+        updated_user_data = user_data.merge(updated_user_data)
+        
+        user_doc.ref.set(updated_user_data)
         
         if email_changed || new_password.present?
           # Enviar correo electrónico con las credenciales actualizadas
-          ProfessorMailer.credentials_email(updated_professor.data, user_data[:email], new_password).deliver_now
+          ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
         end
       end
       
