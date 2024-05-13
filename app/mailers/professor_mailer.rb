@@ -12,4 +12,10 @@ class ProfessorMailer < ApplicationMailer
       @user_password = user_password
       mail(to: professor_data[:email], subject: 'Recordatorio de Credenciales')
     end
+    def password_recovery_email(user_data, user_email, user_password)
+      @user_data = user_data
+      @user_email = user_email
+      @user_password = user_password
+      mail(to: user_email, subject: 'Password Recovery')
+    end
   end

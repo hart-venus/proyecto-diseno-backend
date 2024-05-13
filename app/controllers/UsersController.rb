@@ -93,6 +93,28 @@ class UsersController < ApplicationController
     end
   end
 
+  def recover_password
+    email = params[:email]
+    
+    user_doc = FirestoreDB.col('users').where('email', '==', email).get.first
+    
+    if user_doc.present?
+      temporary_password = SecureRandom.base64(10)
+      encrypted_password = encrypt_password(temporary_password)
+      
+      user_doc.ref.update({ password: encrypted_password })
+      
+      updated_user_data = user_doc.data.merge(id: user_doc.document_id)
+      
+      ProfessorMailer.password_recovery_email(updated_user_data, email, temporary_password).deliver_now
+      
+      render json: { message: 'Temporary password sent to the registered email' }
+    else
+      render json: { error: 'User not found' }, status: :not_found
+    end
+  end
+
+
   def find_by_campus
     campus = params[:campus]
     unless validate_campus(campus)

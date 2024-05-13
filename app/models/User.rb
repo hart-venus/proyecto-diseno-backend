@@ -43,10 +43,6 @@ class User
     role == Constants::ROLES[:admin]
   end
 
-  def password=(password)
-    @password = BCrypt::Password.create(password)
-  end
-
   # Método para obtener los atributos del usuario como un hash
   def attributes
     {

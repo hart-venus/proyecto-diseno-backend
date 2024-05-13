@@ -9,7 +9,8 @@ Rails.application.routes.draw do
   get '/users/find_by_campus/:campus', to: 'users#find_by_campus'
   get '/users/find_by_role/:role', to: 'users#find_by_role'
   get '/users/find_by_email/:email', to: 'users#find_by_email'
-
+  post '/users/recover_password', to: 'users#recover_password'
+  
   # Rutas para el controlador de profesores
   post '/professors', to: 'professors#create'
   get '/professors/search', to: 'professors#search'
