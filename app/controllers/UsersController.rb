@@ -39,13 +39,18 @@ class UsersController < ApplicationController
   def update
     user_ref = FirestoreDB.col('users').doc(params[:id])
     user = user_ref.get
-
+  
     if user.exists?
       user_data = user.data.dup
-      user_params.slice(:full_name, :role, :campus, :password).each do |key, value|
-        user_data[key] = key == :password ? encrypt_password(value) : value
+  
+      if user_params[:password].present?
+        user_data[:password] = encrypt_password(user_params[:password])
       end
-
+  
+      user_params.slice(:full_name, :role, :campus).each do |key, value|
+        user_data[key] = value
+      end
+  
       if user_params[:email].present? && user_params[:email] != user_data[:email]
         existing_user = FirestoreDB.col('users').where('email', '==', user_params[:email]).get.first
         if existing_user.present?
@@ -55,7 +60,7 @@ class UsersController < ApplicationController
           user_data[:email] = user_params[:email]
         end
       end
-
+  
       user_ref.set(user_data)
       updated_user = user_ref.get
       render json: updated_user.data.merge(id: updated_user.document_id)
@@ -87,6 +92,28 @@ class UsersController < ApplicationController
       render json: { error: 'Invalid email or password' }, status: :unauthorized
     end
   end
+
+  def recover_password
+    email = params[:email]
+    
+    user_doc = FirestoreDB.col('users').where('email', '==', email).get.first
+    
+    if user_doc.present?
+      temporary_password = SecureRandom.base64(10)
+      encrypted_password = encrypt_password(temporary_password)
+      
+      user_doc.ref.update({ password: encrypted_password })
+      
+      updated_user_data = user_doc.data.merge(id: user_doc.document_id)
+      
+      ProfessorMailer.password_recovery_email(updated_user_data, email, temporary_password).deliver_now
+      
+      render json: { message: 'Temporary password sent to the registered email' }
+    else
+      render json: { error: 'User not found' }, status: :not_found
+    end
+  end
+
 
   def find_by_campus
     campus = params[:campus]
