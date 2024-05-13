@@ -120,7 +120,8 @@ class ProfessorsController < ApplicationController
       email: params[:email],
       office_phone: params[:office_phone],
       cellphone: params[:cellphone],
-      status: params[:status]
+      status: params[:status],
+      campus: params[:campus] # Agregar el atributo campus al hash professor_data
     }
     
     # Convertir el valor de 'coordinator' a booleano
@@ -141,6 +142,7 @@ class ProfessorsController < ApplicationController
       previous_data = professor.data
       
       email_changed = false
+      campus_changed = false
       
       # Verificar si el correo electrónico ya está en uso por otro profesor
       if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
@@ -151,6 +153,11 @@ class ProfessorsController < ApplicationController
         else
           email_changed = true
         end
+      end
+      
+      # Verificar si el campus ha cambiado
+      if professor_data[:campus].present? && professor_data[:campus] != professor.data[:campus]
+        campus_changed = true
       end
       
       # Actualizar los atributos del profesor
@@ -167,6 +174,7 @@ class ProfessorsController < ApplicationController
       
       if user_doc.exists?
         user_data = user_doc.data
+        updated_user_data = {}
         
         # Generar una nueva contraseña para el usuario
         new_password = SecureRandom.base64(10)
@@ -174,13 +182,26 @@ class ProfessorsController < ApplicationController
         # Encriptar la nueva contraseña
         encrypted_password = encrypt_password(new_password)
         
-        # Actualizar la contraseña del usuario en Firestore
-        user_data[:password] = encrypted_password
+        # Agregar la contraseña actualizada al nuevo hash
+        updated_user_data[:password] = encrypted_password
         
-        user_doc.ref.set(user_data)
+        # Actualizar el correo electrónico del usuario si ha cambiado
+        if email_changed
+          updated_user_data[:email] = professor_data[:email]
+        end
+        
+        # Actualizar el campus del usuario si ha cambiado
+        if campus_changed
+          updated_user_data[:campus] = professor_data[:campus]
+        end
+        
+        # Combinar los datos existentes con los datos actualizados
+        updated_user_data = user_data.merge(updated_user_data)
+        
+        user_doc.ref.set(updated_user_data)
         
         # Enviar correo electrónico con las nuevas credenciales
-        ProfessorMailer.credentials_email(updated_professor.data, user_data[:email], new_password).deliver_now
+        ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
       end
       
       # Obtener el ID del usuario que realiza la modificación desde los parámetros
