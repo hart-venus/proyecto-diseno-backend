@@ -38,16 +38,43 @@ class ActivitiesController < ApplicationController
   def update
     activity = Activity.find(params[:id])
     if activity
-      if activity.update(activity_params)
-        render json: activity.attributes
+      update_params = activity.attributes.dup # Crear una copia mutable de los atributos
+  
+      # Actualizar atributos individualmente si están presentes en los parámetros
+      update_params[:work_plan_id] = params[:work_plan_id] if params[:work_plan_id].present?
+      update_params[:week] = params[:week].to_i if params[:week].present?
+      update_params[:activity_type] = params[:activity_type] if params[:activity_type].present?
+      update_params[:name] = params[:name] if params[:name].present?
+      update_params[:date] = params[:date] if params[:date].present?
+      update_params[:time] = params[:time] if params[:time].present?
+      update_params[:responsible_ids] = params[:responsible_ids] if params[:responsible_ids].present?
+      update_params[:announcement_days] = params[:announcement_days] if params[:announcement_days].present?
+      update_params[:reminder_days] = params[:reminder_days] if params[:reminder_days].present?
+      update_params[:is_remote] = params[:is_remote] if params[:is_remote].present?
+      update_params[:meeting_link] = params[:meeting_link] if params[:meeting_link].present?
+      update_params[:status] = activity.status
+      update_params[:cancel_reason] = activity.cancel_reason
+      update_params[:evidences] = activity.evidences
+  
+      if params[:poster_file].present?
+        poster_url = upload_poster(params[:poster_file])
+        update_params[:poster_url] = poster_url
+      end
+  
+      updated_activity = Activity.new(update_params)
+      updated_activity.id = activity.id
+  
+      if updated_activity.valid?
+        FirestoreDB.col('activities').doc(activity.id).set(updated_activity.attributes)
+        render json: updated_activity.attributes
       else
-        render json: { error: 'Failed to update activity', details: activity.errors.full_messages }, status: :unprocessable_entity
+        render json: { error: 'Failed to update activity', details: updated_activity.errors.full_messages }, status: :unprocessable_entity
       end
     else
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
+  
   def add_evidence
     activity = Activity.find(params[:id])
     if activity

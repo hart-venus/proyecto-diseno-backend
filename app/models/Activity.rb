@@ -25,7 +25,7 @@ class Activity
   def self.find(id)
     doc = FirestoreDB.col('activities').doc(id).get
     if doc.exists?
-      data = doc.data
+      data = doc.data.dup # Crear una copia mutable del hash
       data['id'] = doc.document_id
       new(data)
     else
