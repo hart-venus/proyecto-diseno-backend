@@ -121,7 +121,7 @@ class ActivitiesController < ApplicationController
     activity = Activity.find(params[:id])
     if activity
       evidence_files = params[:evidence_files]
-      if evidence_files && evidence_files.is_a?(Array)
+      if evidence_files.present? && evidence_files.is_a?(Array)
         evidence_urls = evidence_files.map { |file| upload_evidence(file) }
         activity.mark_as_done(evidence_urls)
         render json: activity.attributes

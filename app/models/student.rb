@@ -57,12 +57,25 @@ class Student
   end
 
   def update(attributes)
+    attributes = attributes.dup # Crear una copia del hash para evitar modificar el original
+
+    @last_name1 = attributes.delete(:last_name1) || @last_name1
+    @last_name2 = attributes.delete(:last_name2) || @last_name2
+    @name1 = attributes.delete(:name1) || @name1
+    @name2 = attributes.delete(:name2) || @name2
+    @email = attributes.delete(:email) || @email
+    @phone = attributes.delete(:phone) || @phone
+    @campus = attributes.delete(:campus) || @campus
+
     if valid?
       student_data = {
-        full_name: attributes[:full_name] || @full_name,
-        email: attributes[:email] || @email,
-        phone: attributes[:phone] || @phone,
-        campus: attributes[:campus] || @campus
+        last_name1: @last_name1,
+        last_name2: @last_name2,
+        name1: @name1,
+        name2: @name2,
+        email: @email,
+        phone: @phone,
+        campus: @campus
       }
       FirestoreDB.col('students').doc(@carne).update(student_data)
       true
@@ -73,6 +86,14 @@ class Student
 
   def destroy
     FirestoreDB.col('students').doc(@carne).delete
+    @carne = nil
+    @last_name1 = nil
+    @last_name2 = nil
+    @name1 = nil
+    @name2 = nil
+    @email = nil
+    @phone = nil
+    @campus = nil
     true
   end
 end
