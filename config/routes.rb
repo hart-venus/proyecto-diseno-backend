@@ -40,8 +40,9 @@ Rails.application.routes.draw do
 
   # Planes de trabajo
   get '/work_plans', to: 'work_plans#index'
+  get 'work_plan/active', to: 'work_plans#active'
+  get 'work_plan/inactive', to: 'work_plans#inactive'
   get '/work_plans/:id_p', to: 'work_plans#show'
-  get '/work_plans/current', to: 'work_plans#current'
   post '/work_plans', to: 'work_plans#create'
   put '/work_plans/:id', to: 'work_plans#update'
 
