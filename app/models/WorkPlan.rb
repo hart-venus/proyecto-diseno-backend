@@ -2,9 +2,10 @@ class WorkPlan
   include ActiveModel::Model
   include ActiveModel::Validations
 
-  attr_accessor :id, :coordinator_id, :start_date, :end_date
+  attr_accessor :id, :coordinator_id, :start_date, :end_date, :campus, :active
 
-  validates :coordinator_id, :start_date, :end_date, presence: true
+  validates :coordinator_id, :start_date, :end_date, :campus, presence: true
+  validates :active, inclusion: { in: [true, false] }
   validate :end_date_after_start_date
 
   def self.create(attributes)
@@ -18,27 +19,41 @@ class WorkPlan
     end
   end
 
+  def self.find(id)
+    doc = FirestoreDB.col('work_plans').doc(id).get
+    if doc.exists?
+      data = doc.data
+      data['id'] = doc.document_id
+      new(data)
+    else
+      nil
+    end
+  end
+
+  def update(attributes)
+    merge_attributes(attributes)
+    if valid?
+      FirestoreDB.col('work_plans').doc(id).update(attributes)
+      true
+    else
+      false
+    end
+  end
+
+  def deactivate
+    self.active = false
+    FirestoreDB.col('work_plans').doc(id).update(active: false)
+  end
+
   def attributes
     {
+      id: id,
       coordinator_id: coordinator_id,
       start_date: start_date,
-      end_date: end_date
+      end_date: end_date,
+      campus: campus,
+      active: active
     }
-  end
-
-  def get_activities(filters = {})
-    query = FirestoreDB.col('activities').where('work_plan_id', '==', id)
-    filters.each do |field, value|
-      query = query.where(field.to_s, '==', value)
-    end
-    activities = query.get.map { |doc| Activity.new(doc.data.merge(id: doc.document_id)) }
-    activities.empty? ? nil : activities
-  end
-
-  def next_activity
-    today = Date.today
-    upcoming_activities = get_activities&.select { |activity| activity.date_time.to_date >= today }
-    upcoming_activities&.min_by { |activity| activity.date_time }
   end
 
   private

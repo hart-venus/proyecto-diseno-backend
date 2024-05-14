@@ -223,84 +223,95 @@ class ProfessorsController < ApplicationController
   end
   
   def update_profile
-    code = params[:code]
-    professor_data = {
-      full_name: params[:full_name],
-      email: params[:email],
-      office_phone: params[:office_phone],
-      cellphone: params[:cellphone],
-      status: params[:status]
-    }
-    
-    new_password = params[:new_password]
-    
-    photo = params[:photo]
-    if photo.present?
-      photo_url = upload_photo(photo)
-      professor_data[:photo_url] = photo_url
-    end
-    
-    professor = FirestoreDB.col('professors').where('code', '==', code).get.first
-    if professor.present?
-      professor_ref = professor.ref
-      
-      email_changed = false
-      
-      # Verificar si el correo electrónico ya está en uso por otro profesor
-      if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
-        existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
-        if existing_professor.present?
-          render json: { error: 'Email already exists' }, status: :unprocessable_entity
-          return
-        else
-          email_changed = true
-        end
-      end
-      
-      # Actualizar los atributos del profesor
-      professor_data.each do |key, value|
-        professor_ref.update({ key => value }) if value.present?
-      end
-      
-      # Obtener el profesor actualizado desde Firestore
-      updated_professor = professor_ref.get
-      
-      # Obtener el usuario asociado al profesor
-      user_id = updated_professor.data[:user_id]
-      user_doc = FirestoreDB.col('users').doc(user_id).get
-      
-      if user_doc.exists?
-        user_data = user_doc.data
-        updated_user_data = {}
-        
-        if new_password.present?
-          # Encriptar la nueva contraseña
-          encrypted_password = encrypt_password(new_password)
-          
-          # Agregar la contraseña actualizada al nuevo hash
-          updated_user_data[:password] = encrypted_password
-        end
-        
-        if email_changed
-          updated_user_data[:email] = professor_data[:email]
-        end
-        
-        # Combinar los datos existentes con los datos actualizados
-        updated_user_data = user_data.merge(updated_user_data)
-        
-        user_doc.ref.set(updated_user_data)
-        
-        if email_changed || new_password.present?
-          # Enviar correo electrónico con las credenciales actualizadas
-          ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
-        end
-      end
-      
-      render json: updated_professor.data
-    else
-      render json: { error: 'Professor not found' }, status: :not_found
-    end
+  code = params[:code]
+  professor_data = {
+    full_name: params[:full_name],
+    email: params[:email],
+    office_phone: params[:office_phone],
+    cellphone: params[:cellphone],
+    status: params[:status],
+    campus: params[:campus] # Agregar el atributo campus al hash professor_data
+  }
+  
+  new_password = params[:new_password]
+  
+  photo = params[:photo]
+  if photo.present?
+    photo_url = upload_photo(photo)
+    professor_data[:photo_url] = photo_url
   end
+  
+  professor = FirestoreDB.col('professors').where('code', '==', code).get.first
+  if professor.present?
+    professor_ref = professor.ref
+    
+    email_changed = false
+    campus_changed = false
+    
+    # Verificar si el correo electrónico ya está en uso por otro profesor
+    if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
+      existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
+      if existing_professor.present?
+        render json: { error: 'Email already exists' }, status: :unprocessable_entity
+        return
+      else
+        email_changed = true
+      end
+    end
+    
+    # Verificar si el campus ha cambiado
+    if professor_data[:campus].present? && professor_data[:campus] != professor.data[:campus]
+      campus_changed = true
+    end
+    
+    # Actualizar los atributos del profesor
+    professor_data.each do |key, value|
+      professor_ref.update({ key => value }) if value.present?
+    end
+    
+    # Obtener el profesor actualizado desde Firestore
+    updated_professor = professor_ref.get
+    
+    # Obtener el usuario asociado al profesor
+    user_id = updated_professor.data[:user_id]
+    user_doc = FirestoreDB.col('users').doc(user_id).get
+    
+    if user_doc.exists?
+      user_data = user_doc.data
+      updated_user_data = {}
+      
+      if new_password.present?
+        # Encriptar la nueva contraseña
+        encrypted_password = encrypt_password(new_password)
+        
+        # Agregar la contraseña actualizada al nuevo hash
+        updated_user_data[:password] = encrypted_password
+      end
+      
+      if email_changed
+        updated_user_data[:email] = professor_data[:email]
+      end
+      
+      if campus_changed
+        updated_user_data[:campus] = professor_data[:campus]
+      end
+      
+      # Combinar los datos existentes con los datos actualizados
+      updated_user_data = user_data.merge(updated_user_data)
+      
+      user_doc.ref.set(updated_user_data)
+      
+      if email_changed || new_password.present?
+        # Enviar correo electrónico con las credenciales actualizadas
+        ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
+      end
+    end
+    
+    render json: updated_professor.data
+  else
+    render json: { error: 'Professor not found' }, status: :not_found
+  end
+end
 
   def send_welcome_email(professor, user_email, user_password)
     ProfessorMailer.welcome_email(professor, user_email, user_password).deliver_now
