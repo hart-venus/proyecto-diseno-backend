@@ -35,3 +35,5 @@
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 credentials.json
+afiche_semana1.pdf
+evidencia_semana1.png

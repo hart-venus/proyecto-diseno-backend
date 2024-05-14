@@ -5,6 +5,39 @@ require 'axlsx'
 class StudentsController < ApplicationController
   skip_forgery_protection
 
+
+  # Actualizar un estudiante
+  def update
+    student = Student.find(params[:id])
+    
+    if student.nil?
+      render json: { error: 'Estudiante no encontrado' }, status: :not_found
+      return
+    end
+
+    if student.update(student_params)
+      render json: student_response(student)
+    else
+      render json: { error: student.errors.full_messages.join(', ') }, status: :unprocessable_entity
+    end
+  end
+
+  # Eliminar un estudiante
+  def destroy
+    student = Student.find(params[:id])
+    
+    if student.nil?
+      render json: { error: 'Estudiante no encontrado' }, status: :not_found
+      return
+    end
+
+    if student.destroy
+      render json: { message: 'Estudiante eliminado exitosamente' }, status: :ok
+    else
+      render json: { error: 'Error al eliminar el estudiante' }, status: :unprocessable_entity
+    end
+  end
+
   # Método para subir y procesar el archivo Excel de estudiantes
   def upload
     file = params[:file]
@@ -246,5 +279,7 @@ class StudentsController < ApplicationController
       campus: student.campus
     }
   end
-
+  def student_params
+    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus)
+  end
 end
