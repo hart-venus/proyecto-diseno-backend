@@ -61,25 +61,48 @@ class Activity
     FirestoreDB.col('activities').doc(id).update(evidences: attrs['evidences'])
   end
  
-  def notify(poster_url)
-    attrs = self.attributes.dup # Crear una copia mutable del hash de atributos
-    attrs['poster_url'] = poster_url
-    attrs['status'] = 'NOTIFICADA'
-    FirestoreDB.col('activities').doc(id).update(attrs)
+  def self.notify(activity_id)
+    activity_ref = FirestoreDB.col('activities').doc(activity_id)
+    activity_doc = activity_ref.get
+  
+    if activity_doc.exists?
+      activity_data = activity_doc.data.dup # Duplicar el hash
+      activity_data['status'] = 'NOTIFICADA'
+      activity_ref.update(status: 'NOTIFICADA')
+      true
+    else
+      false
+    end
   end
- 
-  def mark_as_done(evidence_urls)
-    attrs = self.attributes.dup # Crear una copia mutable del hash de atributos
-    attrs['status'] = 'REALIZADA'
-    attrs['evidences'] = evidence_urls
-    FirestoreDB.col('activities').doc(id).update(attrs)
+  
+  def self.mark_as_done(activity_id, evidence_urls)
+    activity_ref = FirestoreDB.col('activities').doc(activity_id)
+    activity_doc = activity_ref.get
+  
+    if activity_doc.exists?
+      activity_data = activity_doc.data.dup # Duplicar el hash
+      activity_data['status'] = 'REALIZADA'
+      activity_data['evidences'] = evidence_urls
+      activity_ref.update(status: 'REALIZADA', evidences: evidence_urls)
+      true
+    else
+      false
+    end
   end
- 
-  def cancel(reason)
-    attrs = self.attributes.dup # Crear una copia mutable del hash de atributos
-    attrs['status'] = 'CANCELADA'
-    attrs['cancel_reason'] = reason
-    FirestoreDB.col('activities').doc(id).update(attrs)
+  
+  def self.cancel(activity_id, reason)
+    activity_ref = FirestoreDB.col('activities').doc(activity_id)
+    activity_doc = activity_ref.get
+  
+    if activity_doc.exists?
+      activity_data = activity_doc.data.dup # Duplicar el hash
+      activity_data['status'] = 'CANCELADA'
+      activity_data['cancel_reason'] = reason
+      activity_ref.update(status: 'CANCELADA', cancel_reason: reason)
+      true
+    else
+      false
+    end
   end
  
   def attributes

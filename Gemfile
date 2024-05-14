@@ -58,6 +58,8 @@ group :development, :test do
   gem "debug", platforms: %i[ mri windows ]
 end
 
+gem "rack-cors" # Cross-Origin Resource Sharing (CORS) for Rack compatible web applications [
+
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
