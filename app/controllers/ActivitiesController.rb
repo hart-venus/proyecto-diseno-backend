@@ -102,21 +102,15 @@ class ActivitiesController < ApplicationController
   end
 
   def notify
-    activity = Activity.find(params[:id])
-    if activity
-      poster_file = params[:poster_file]
-      if poster_file
-        poster_url = upload_poster(poster_file)
-        activity.notify(poster_url)
-        render json: activity.attributes
-      else
-        render json: { error: 'Poster file is required' }, status: :bad_request
-      end
+    activity_id = params[:id]
+    
+    if Activity.notify(activity_id)
+      render json: { message: 'Activity notified successfully' }
     else
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
+  
   def mark_as_done
     activity = Activity.find(params[:id])
     if activity
@@ -145,6 +139,15 @@ class ActivitiesController < ApplicationController
       end
     else
       render json: { error: 'Activity not found' }, status: :not_found
+    end
+  end
+  
+  def poster
+    activity = Activity.find(params[:id])
+    if activity && activity.poster_url.present?
+      redirect_to activity.poster_url
+    else
+      render json: { error: 'Poster not found' }, status: :not_found
     end
   end
 

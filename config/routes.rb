@@ -53,6 +53,9 @@ Rails.application.routes.draw do
   # Mostrar detalles de una actividad
   get '/activities/:id', to: 'activities#show'
 
+  # Obtener poster de una actividad
+  get '/activities/:id/poster', to: 'activities#poster'
+
   # Crear una nueva actividad
   post '/activities', to: 'activities#create'
 
@@ -67,7 +70,7 @@ Rails.application.routes.draw do
   post '/activities/:id/activate', to: 'activities#activate'
 
   # Notificar una actividad
-  post '/activities/:id/notify', to: 'activities#notify'
+  patch '/activities/:id/notify', to: 'activities#notify'
 
   # Marcar una actividad como realizada
   post '/activities/:id/done', to: 'activities#mark_as_done'
