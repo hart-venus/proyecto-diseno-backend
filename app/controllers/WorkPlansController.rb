@@ -13,7 +13,7 @@ class WorkPlansController < ApplicationController
   end
 
   def show
-    work_plan_doc = FirestoreDB.col('work_plans').doc(params[:id]).get
+    work_plan_doc = FirestoreDB.col('work_plans').doc(params[:id_p]).get
     if work_plan_doc.exists?
       work_plan_data = work_plan_doc.data
       @work_plan = WorkPlan.new(work_plan_data.merge(id: work_plan_doc.document_id))
@@ -27,6 +27,8 @@ class WorkPlansController < ApplicationController
     if @professor.present?
       @work_plan = WorkPlan.create(work_plan_params.merge(coordinator_id: @professor[:'code']))
       if @work_plan
+        work_plan_ref = FirestoreDB.col('work_plans').doc(@work_plan.id)
+        work_plan_ref.set(@work_plan.attributes.merge(id: @work_plan.id))
         render json: @work_plan.attributes.merge(id: @work_plan.id), status: :created
       else
         render json: { errors: @work_plan.errors.full_messages }, status: :unprocessable_entity
@@ -57,19 +59,30 @@ class WorkPlansController < ApplicationController
     end
   end
 
-  def current
-    today = Date.today
-    work_plans = FirestoreDB.col('work_plans')
-      .where('start_date', '<=', today)
-      .where('end_date', '>=', today)
+  def active
+    active_work_plans = FirestoreDB.col('work_plans')
+      .where('active', '==', true)
       .get
-    @current_work_plan = work_plans.map { |doc| WorkPlan.new(doc.data.merge(id: doc.document_id)) }.first
-    if @current_work_plan
-      next_activity = @current_work_plan.next_activity
-      render json: { work_plan: @current_work_plan, next_activity: next_activity }
-    else
-      render json: { message: 'No current work plan found' }, status: :not_found
+  
+    @work_plans = active_work_plans.map do |doc|
+      work_plan_data = doc.data
+      WorkPlan.new(work_plan_data.merge(id: doc.document_id))
     end
+  
+    render json: @work_plans.map(&:attributes), status: :ok
+  end
+  
+  def inactive
+    inactive_work_plans = FirestoreDB.col('work_plans')
+      .where('active', '==', false)
+      .get
+  
+    @work_plans = inactive_work_plans.map do |doc|
+      work_plan_data = doc.data
+      WorkPlan.new(work_plan_data.merge(id: doc.document_id))
+    end
+  
+    render json: @work_plans.map(&:attributes), status: :ok
   end
 
   private
