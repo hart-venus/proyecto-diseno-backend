@@ -102,9 +102,15 @@ class ActivitiesController < ApplicationController
   end
 
   def notify
-    activity_id = params[:id]
+    activity = Activity.find(params[:id])
     
-    if Activity.notify(activity_id)
+    if activity
+      update_attrs = {
+        status: 'NOTIFICADA'
+      }
+      
+      FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+      
       render json: { message: 'Activity notified successfully' }
     else
       render json: { error: 'Activity not found' }, status: :not_found
@@ -112,34 +118,55 @@ class ActivitiesController < ApplicationController
   end
   
   def mark_as_done
-    activity_id = params[:id]
-    evidence_files = params[:evidence_files]
+    activity = Activity.find(params[:id])
     
-    if evidence_files.present? && evidence_files.is_a?(Array)
-      evidence_urls = evidence_files.map { |file| upload_evidence(file) }
+    if activity
+      evidence_files = params[:evidence_files]
       
-      if Activity.mark_as_done(activity_id, evidence_urls)
+      if evidence_files.present? && evidence_files.is_a?(Array)
+        evidence_urls = []
+        
+        evidence_files.each do |file|
+          evidence_url = upload_evidence(file)
+          evidence_urls << evidence_url
+        end
+        
+        update_attrs = {
+          status: 'REALIZADA',
+          evidences: activity.evidences.to_a.concat(evidence_urls)
+        }
+        
+        FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+        
         render json: { message: 'Activity marked as done successfully' }
       else
-        render json: { error: 'Activity not found' }, status: :not_found
+        render json: { error: 'Evidence files are required' }, status: :bad_request
       end
     else
-      render json: { error: 'Evidence files are required' }, status: :bad_request
+      render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
+  
   def cancel
-    activity_id = params[:id]
-    cancel_reason = params[:cancel_reason]
-    
-    if cancel_reason.present?
-      if Activity.cancel(activity_id, cancel_reason)
+    activity = Activity.find(params[:id])
+  
+    if activity
+      cancel_reason = params[:cancel_reason]
+  
+      if cancel_reason.present?
+        update_attrs = {
+          status: 'CANCELADA',
+          cancel_reason: cancel_reason
+        }
+  
+        FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+  
         render json: { message: 'Activity cancelled successfully' }
       else
-        render json: { error: 'Activity not found' }, status: :not_found
+        render json: { error: 'Cancel reason is required' }, status: :bad_request
       end
     else
-      render json: { error: 'Cancel reason is required' }, status: :bad_request
+      render json: { error: 'Activity not found' }, status: :not_found
     end
   end
   
