@@ -79,6 +79,10 @@ Rails.application.routes.draw do
 
   # Cancelar una actividad
   post '/activities/:id/cancel', to: 'activities#cancel'
+
+  # Agregar Comentarios
+  post '/comments/:activity_id', to: 'activity_comments#create'
+
 end
 
 
