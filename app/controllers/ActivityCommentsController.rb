@@ -55,6 +55,39 @@ class ActivityCommentsController < ApplicationController
     end
   end
 
+  def activity_base_comments
+    activity_id = params[:activity_id]
+  
+    base_comments = FirestoreDB.col('comments')
+                                .where('activity_id', '==', activity_id)
+                                .where('parent_comment_id', '==', nil)
+                                .get.to_a
+  
+    comments_data = base_comments.map do |comment_doc|
+      comment_data = comment_doc.data.dup
+      comment_data['id'] = comment_doc.document_id
+      comment_data
+    end
+  
+    render json: comments_data, status: :ok
+  end
+
+  def direct_reply_comments
+    parent_comment_id = params[:parent_comment_id]
+  
+    reply_comments = FirestoreDB.col('comments')
+                                 .where('parent_comment_id', '==', parent_comment_id)
+                                 .get.to_a
+  
+    comments_data = reply_comments.map do |comment_doc|
+      comment_data = comment_doc.data.dup
+      comment_data['id'] = comment_doc.document_id
+      comment_data
+    end
+  
+    render json: comments_data, status: :ok
+  end
+
   private
 
   def find_professor_by_id(user_id)

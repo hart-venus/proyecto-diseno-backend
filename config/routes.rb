@@ -83,6 +83,10 @@ Rails.application.routes.draw do
   # Agregar Comentarios
   post '/comments/:activity_id', to: 'activity_comments#create'
 
+  get '/comments/:activity_id/base_comments' , to: 'activity_comments#activity_base_comments'
+
+  get '/comments/:parent_comment_id/replies' , to: 'activity_comments#direct_reply_comments'
+
 end
 
 
