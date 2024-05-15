@@ -112,33 +112,34 @@ class ActivitiesController < ApplicationController
   end
   
   def mark_as_done
-    activity = Activity.find(params[:id])
-    if activity
-      evidence_files = params[:evidence_files]
-      if evidence_files.present? && evidence_files.is_a?(Array)
-        evidence_urls = evidence_files.map { |file| upload_evidence(file) }
-        activity.mark_as_done(evidence_urls)
-        render json: activity.attributes
+    activity_id = params[:id]
+    evidence_files = params[:evidence_files]
+    
+    if evidence_files.present? && evidence_files.is_a?(Array)
+      evidence_urls = evidence_files.map { |file| upload_evidence(file) }
+      
+      if Activity.mark_as_done(activity_id, evidence_urls)
+        render json: { message: 'Activity marked as done successfully' }
       else
-        render json: { error: 'Evidence files are required' }, status: :bad_request
+        render json: { error: 'Activity not found' }, status: :not_found
       end
     else
-      render json: { error: 'Activity not found' }, status: :not_found
+      render json: { error: 'Evidence files are required' }, status: :bad_request
     end
   end
 
   def cancel
-    activity = Activity.find(params[:id])
-    if activity
-      cancel_reason = params[:cancel_reason]
-      if cancel_reason
-        activity.cancel(cancel_reason)
-        render json: activity.attributes
+    activity_id = params[:id]
+    cancel_reason = params[:cancel_reason]
+    
+    if cancel_reason.present?
+      if Activity.cancel(activity_id, cancel_reason)
+        render json: { message: 'Activity cancelled successfully' }
       else
-        render json: { error: 'Cancel reason is required' }, status: :bad_request
+        render json: { error: 'Activity not found' }, status: :not_found
       end
     else
-      render json: { error: 'Activity not found' }, status: :not_found
+      render json: { error: 'Cancel reason is required' }, status: :bad_request
     end
   end
   
