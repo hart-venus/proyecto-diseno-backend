@@ -171,15 +171,22 @@ class ActivitiesController < ApplicationController
   end
   
   def notified
-    notified_activities = FirestoreDB.col('activities')
-                                   .where('status', '==', 'NOTIFICADA')
-                                   .get
-                                   .map { |activity_doc| activity_doc.data.merge(id: activity_doc.document_id) }
+    work_plan_id = params[:work_plan_id]
+    
+    if work_plan_id.present?
+      notified_activities = FirestoreDB.col('activities')
+                                       .where('status', '==', 'NOTIFICADA')
+                                       .where('work_plan_id', '==', work_plan_id)
+                                       .get
+                                       .map { |activity_doc| activity_doc.data.merge(id: activity_doc.document_id) }
   
-    if notified_activities.any?
-      render json: notified_activities
+      if notified_activities.any?
+        render json: notified_activities
+      else
+        render json: { message: 'No notified activities found for the given work plan ID' }
+      end
     else
-      render json: { message: 'No notified activities found' }
+      render json: { error: 'Work plan ID is required' }, status: :bad_request
     end
   end
   
