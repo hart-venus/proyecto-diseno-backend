@@ -1,6 +1,6 @@
 class ActivitiesController < ApplicationController
   skip_forgery_protection
-
+  require 'firebase'
   def index
     work_plan_id = params[:work_plan_id]
     if work_plan_id
@@ -170,12 +170,41 @@ class ActivitiesController < ApplicationController
     end
   end
   
+  def notified
+    notified_activities = FirestoreDB.col('activities')
+                                   .where('status', '==', 'NOTIFICADA')
+                                   .get
+                                   .map { |activity_doc| activity_doc.data.merge(id: activity_doc.document_id) }
+  
+    if notified_activities.any?
+      render json: notified_activities
+    else
+      render json: { message: 'No notified activities found' }
+    end
+  end
+  
   def poster
     activity = Activity.find(params[:id])
+    
     if activity && activity.poster_url.present?
-      redirect_to activity.poster_url
+      # Obtener el nombre del archivo del póster de la URL
+      file_name = File.basename(URI.parse(activity.poster_url).path)
+      
+      # Descargar el contenido del archivo del póster desde Firebase Storage
+      bucket_name = 'projecto-diseno-backend.appspot.com'
+      bucket = FirebaseStorage.bucket(bucket_name)
+      file = bucket.file(file_name)
+      
+      if file.present?
+        file_content = file.download
+        
+        # Enviar el archivo como respuesta para descarga
+        send_data file_content, filename: file_name, type: file.content_type, disposition: 'attachment'
+      else
+        render json: { error: 'Poster file not found in storage' }, status: :not_found
+      end
     else
-      render json: { error: 'Poster not found' }, status: :not_found
+      render json: { error: 'Poster URL not found for the activity' }, status: :not_found
     end
   end
 

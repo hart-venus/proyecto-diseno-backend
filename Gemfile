@@ -9,6 +9,7 @@ gem 'bcrypt'
 gem 'jwt'
 gem 'google-cloud-firestore' 
 gem 'google-cloud-storage'
+gem 'firebase'
 gem 'net-http'
 gem 'uri'
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]

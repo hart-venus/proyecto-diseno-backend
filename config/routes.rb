@@ -50,6 +50,8 @@ Rails.application.routes.draw do
     # Listar actividades de un plan de trabajo
   get '/activities', to: 'activities#index'
 
+  get '/activity/notified', to: 'activities#notified'
+
   # Mostrar detalles de una actividad
   get '/activities/:id', to: 'activities#show'
 
