@@ -50,6 +50,8 @@ Rails.application.routes.draw do
     # Listar actividades de un plan de trabajo
   get '/activities', to: 'activities#index'
 
+  get '/activity/notified', to: 'activities#notified'
+
   # Mostrar detalles de una actividad
   get '/activities/:id', to: 'activities#show'
 
@@ -77,6 +79,14 @@ Rails.application.routes.draw do
 
   # Cancelar una actividad
   post '/activities/:id/cancel', to: 'activities#cancel'
+
+  # Agregar Comentarios
+  post '/comments/:activity_id', to: 'activity_comments#create'
+
+  get '/comments/:activity_id/base_comments' , to: 'activity_comments#activity_base_comments'
+
+  get '/comments/:parent_comment_id/replies' , to: 'activity_comments#direct_reply_comments'
+
 end
 
 

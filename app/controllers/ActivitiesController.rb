@@ -1,6 +1,6 @@
 class ActivitiesController < ApplicationController
   skip_forgery_protection
-
+  require 'firebase'
   def index
     work_plan_id = params[:work_plan_id]
     if work_plan_id
@@ -102,9 +102,15 @@ class ActivitiesController < ApplicationController
   end
 
   def notify
-    activity_id = params[:id]
+    activity = Activity.find(params[:id])
     
-    if Activity.notify(activity_id)
+    if activity
+      update_attrs = {
+        status: 'NOTIFICADA'
+      }
+      
+      FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+      
       render json: { message: 'Activity notified successfully' }
     else
       render json: { error: 'Activity not found' }, status: :not_found
@@ -113,12 +119,26 @@ class ActivitiesController < ApplicationController
   
   def mark_as_done
     activity = Activity.find(params[:id])
+    
     if activity
       evidence_files = params[:evidence_files]
+      
       if evidence_files.present? && evidence_files.is_a?(Array)
-        evidence_urls = evidence_files.map { |file| upload_evidence(file) }
-        activity.mark_as_done(evidence_urls)
-        render json: activity.attributes
+        evidence_urls = []
+        
+        evidence_files.each do |file|
+          evidence_url = upload_evidence(file)
+          evidence_urls << evidence_url
+        end
+        
+        update_attrs = {
+          status: 'REALIZADA',
+          evidences: activity.evidences.to_a.concat(evidence_urls)
+        }
+        
+        FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+        
+        render json: { message: 'Activity marked as done successfully' }
       else
         render json: { error: 'Evidence files are required' }, status: :bad_request
       end
@@ -126,14 +146,22 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
+  
   def cancel
     activity = Activity.find(params[:id])
+  
     if activity
       cancel_reason = params[:cancel_reason]
-      if cancel_reason
-        activity.cancel(cancel_reason)
-        render json: activity.attributes
+  
+      if cancel_reason.present?
+        update_attrs = {
+          status: 'CANCELADA',
+          cancel_reason: cancel_reason
+        }
+  
+        FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
+  
+        render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
       end
@@ -142,12 +170,48 @@ class ActivitiesController < ApplicationController
     end
   end
   
+  def notified
+    work_plan_id = params[:work_plan_id]
+    
+    if work_plan_id.present?
+      notified_activities = FirestoreDB.col('activities')
+                                       .where('status', '==', 'NOTIFICADA')
+                                       .where('work_plan_id', '==', work_plan_id)
+                                       .get
+                                       .map { |activity_doc| activity_doc.data.merge(id: activity_doc.document_id) }
+  
+      if notified_activities.any?
+        render json: notified_activities
+      else
+        render json: { message: 'No notified activities found for the given work plan ID' }
+      end
+    else
+      render json: { error: 'Work plan ID is required' }, status: :bad_request
+    end
+  end
+  
   def poster
     activity = Activity.find(params[:id])
+    
     if activity && activity.poster_url.present?
-      redirect_to activity.poster_url
+      # Obtener el nombre del archivo del póster de la URL
+      file_name = File.basename(URI.parse(activity.poster_url).path)
+      
+      # Descargar el contenido del archivo del póster desde Firebase Storage
+      bucket_name = 'projecto-diseno-backend.appspot.com'
+      bucket = FirebaseStorage.bucket(bucket_name)
+      file = bucket.file(file_name)
+      
+      if file.present?
+        file_content = file.download
+        
+        # Enviar el archivo como respuesta para descarga
+        send_data file_content, filename: file_name, type: file.content_type, disposition: 'attachment'
+      else
+        render json: { error: 'Poster file not found in storage' }, status: :not_found
+      end
     else
-      render json: { error: 'Poster not found' }, status: :not_found
+      render json: { error: 'Poster URL not found for the activity' }, status: :not_found
     end
   end
 

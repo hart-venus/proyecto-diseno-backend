@@ -130,6 +130,10 @@ GEM
       net-http
     faraday-retry (2.2.1)
       faraday (~> 2.0)
+    firebase (0.2.8)
+      googleauth
+      httpclient (>= 2.5.3)
+      json
     gapic-common (0.21.1)
       faraday (>= 1.9, < 3.a)
       faraday-retry (>= 1.0, < 3.a)
@@ -409,6 +413,7 @@ DEPENDENCIES
   capybara
   caxlsx_rails
   debug
+  firebase
   google-cloud-firestore
   google-cloud-storage
   importmap-rails
