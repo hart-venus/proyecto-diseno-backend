@@ -1,82 +1,53 @@
+# app/controllers/users_controller.rb
 class UsersController < ApplicationController
   skip_forgery_protection
 
+  def initialize
+    @user_repository = UserCollection.new
+  end
+
   def index
-    users = FirestoreDB.col('users').get
-    render json: users.map { |user| user.data.merge(id: user.document_id) }
+    users = @user_repository.all
+    render json: users
   end
 
   def show
-    user_ref = FirestoreDB.col('users').doc(params[:id])
-    user = user_ref.get
-    if user.exists?
-      render json: user.data.merge(id: user.document_id)
+    user = @user_repository.find(params[:id])
+    if user.present?
+      render json: user
     else
       render json: { error: 'User not found' }, status: :not_found
     end
   end
 
   def create
-    user = User.new(user_params)
-    if user.valid?
-      created_user = create_user_in_firestore(user)
-      render json: created_user, status: :created
-    else
-      render json: { errors: user.errors.full_messages }, status: :unprocessable_entity
-    end
-  end
-
-  def create_user(user_params)
-    user = User.new(user_params)
-    if user.valid?
-      created_user = create_user_in_firestore(user)
-      created_user
-    else
-      raise "Invalid user data: #{user.errors.full_messages.join(', ')}"
+    begin
+      user = @user_repository.create(user_params)
+      render json: user, status: :created
+    rescue => e
+      render json: { errors: e.message }, status: :unprocessable_entity
     end
   end
 
   def update
-    user_ref = FirestoreDB.col('users').doc(params[:id])
-    user = user_ref.get
-  
-    if user.exists?
-      user_data = user.data.dup
-  
-      if user_params[:password].present?
-        user_data[:password] = encrypt_password(user_params[:password])
+    begin
+      user = @user_repository.update(params[:id], user_params)
+      if user.present?
+        render json: user
+      else
+        render json: { error: 'User not found' }, status: :not_found
       end
-  
-      user_params.slice(:full_name, :role, :campus).each do |key, value|
-        user_data[key] = value
-      end
-  
-      if user_params[:email].present? && user_params[:email] != user_data[:email]
-        existing_user = FirestoreDB.col('users').where('email', '==', user_params[:email]).get.first
-        if existing_user.present?
-          render json: { error: 'Email already exists' }, status: :unprocessable_entity
-          return
-        else
-          user_data[:email] = user_params[:email]
-        end
-      end
-  
-      user_ref.set(user_data)
-      updated_user = user_ref.get
-      render json: updated_user.data.merge(id: updated_user.document_id)
-    else
-      render json: { error: 'User not found' }, status: :not_found
+    rescue => e
+      render json: { errors: e.message }, status: :unprocessable_entity
     end
   end
 
   def destroy
-    user_ref = FirestoreDB.col('users').doc(params[:id])
-    user = user_ref.get
-    if user.exists?
-      user_ref.delete
+    begin
+      @user_repository.delete(params[:id])
       head :no_content
-    else
-      render json: { error: 'User not found' }, status: :not_found
+    rescue => e
+      render json: { errors: e.message }, status: :unprocessable_entity
     end
   end
 
@@ -84,10 +55,10 @@ class UsersController < ApplicationController
     email = params[:email]
     password = params[:password]
 
-    user = FirestoreDB.col('users').where('email', '==', email).get.first
+    user = @user_repository.authenticate(email, password)
 
-    if user.present? && password_match?(user.data[:password], password)
-      render json: { message: 'Authentication successful', user_id: user.document_id }
+    if user.present?
+      render json: { message: 'Authentication successful', user_id: user[:id] }
     else
       render json: { error: 'Invalid email or password' }, status: :unauthorized
     end
@@ -95,63 +66,52 @@ class UsersController < ApplicationController
 
   def recover_password
     email = params[:email]
+    temporary_password = @user_collection.recover_password(email)
     
-    user_doc = FirestoreDB.col('users').where('email', '==', email).get.first
-    
-    if user_doc.present?
-      temporary_password = SecureRandom.base64(10)
-      encrypted_password = encrypt_password(temporary_password)
-      
-      user_doc.ref.update({ password: encrypted_password })
-      
-      updated_user_data = user_doc.data.merge(id: user_doc.document_id)
-      
-      ProfessorMailer.password_recovery_email(updated_user_data, email, temporary_password).deliver_now
-      
+    if temporary_password.present?
       render json: { message: 'Temporary password sent to the registered email' }
     else
       render json: { error: 'User not found' }, status: :not_found
     end
   end
 
-
   def find_by_campus
     campus = params[:campus]
     unless validate_campus(campus)
       return
     end
-    
-    users = FirestoreDB.collection("users").where("campus", "==", campus).get.to_a
+
+    users = @user_repository.find_by_campus(campus)
     if users.empty?
       render json: { error: 'No users found for the specified campus' }, status: :not_found
     else
-      render json: users.map { |user| user.data.merge(id: user.document_id) }
+      render json: users
     end
   end
-  
+
   def find_by_role
     role = params[:role]
     unless validate_role(role)
       return
     end
-    
-    users = FirestoreDB.collection("users").where('role', '==', role).get.to_a
+
+    users = @user_repository.find_by_role(role)
     if users.empty?
       render json: { error: 'No users found for the specified role' }, status: :not_found
     else
-      render json: users.map { |user| user.data.merge(id: user.document_id) }
+      render json: users
     end
   end
-  
+
   def find_by_email
     email = params[:email]
     unless validate_email(email)
       return
     end
-  
-    user = FirestoreDB.col('users').where('email', '==', email).get.first
+
+    user = @user_repository.find_by_email(email)
     if user.present?
-      render json: user.data.merge(id: user.document_id)
+      render json: user
     else
       render json: { error: 'User not found' }, status: :not_found
     end
@@ -163,32 +123,6 @@ class UsersController < ApplicationController
     params.require(:user).permit(:email, :full_name, :role, :campus, :password)
   end
 
-  def create_user_in_firestore(user)
-    existing_user = FirestoreDB.col('users').where('email', '==', user.email).get.first
-    if existing_user.present?
-      raise "Email already exists"
-    else
-      user_data = {
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        campus: user.campus,
-        password: encrypt_password(user.password)
-      }
-      user_ref = FirestoreDB.col('users').add(user_data)
-      user_doc = user_ref.get
-      user_doc.data.merge(id: user_doc.document_id)
-    end
-  end
-
-  def encrypt_password(password)
-    BCrypt::Password.create(password)
-  end
-
-  def password_match?(encrypted_password, plain_password)
-    BCrypt::Password.new(encrypted_password) == plain_password
-  end
-
   def validate_campus(campus)
     if Constants::CAMPUSES.key?(campus.to_sym)
       true
@@ -197,7 +131,7 @@ class UsersController < ApplicationController
       false
     end
   end
-  
+
   def validate_role(role)
     if Constants::ROLES.value?(role)
       true
@@ -206,7 +140,7 @@ class UsersController < ApplicationController
       false
     end
   end
-  
+
   def validate_email(email)
     if email =~ URI::MailTo::EMAIL_REGEXP
       true
