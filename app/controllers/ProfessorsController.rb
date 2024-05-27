@@ -388,8 +388,8 @@ end
   def get_professor
     code = params[:code]
     validate_code(code)
-
-    professor_doc = FirestoreDB.col('professors').where('code', '==', code)
+  
+    professor_doc = FirestoreDB.col('professors').where('code', '==', code).get.first
     if professor_doc.present?
       render json: professor_doc.data.merge(id: professor_doc.document_id)
     else
@@ -507,6 +507,24 @@ end
     bucket = FirebaseStorage.bucket(bucket_name)
     file_obj = bucket.create_file(photo.tempfile, file_path, content_type: photo.content_type)
     file_obj.public_url
+  end
+
+  def validate_code(code)
+    unless code.present? && code.match?(/\A[A-Z]{2}-\d{2}\z/)
+      render json: { error: 'Invalid professor code' }, status: :unprocessable_entity
+    end
+  end
+
+  def validate_email(email)
+    unless email.present? && email.match?(URI::MailTo::EMAIL_REGEXP)
+      render json: { error: 'Invalid email format' }, status: :unprocessable_entity
+    end
+  end
+
+  def validate_campus(campus)
+    unless campus.present? && Constants::CAMPUSES.value?(campus)
+      render json: { error: 'Invalid campus' }, status: :unprocessable_entity
+    end
   end
 
 end
