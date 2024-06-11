@@ -1,13 +1,13 @@
 source "https://rubygems.org"
 
-ruby "3.2.0"
+# ruby "3.2.0"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.1.3", ">= 7.1.3.2"
 gem 'json', "2.5.1"
 gem 'bcrypt'
 gem 'jwt'
-gem 'google-cloud-firestore' 
+gem 'google-cloud-firestore'
 gem 'google-cloud-storage'
 gem 'firebase'
 gem 'net-http'
@@ -76,7 +76,7 @@ gem "mail"
 gem "actionmailer"
 gem 'roo'
 gem 'rubyzip', '>= 1.2.1'
-gem 'axlsx', git: 'https://github.com/randym/axlsx.git', ref: 'c8ac844'
+# gem 'axlsx', git: 'https://github.com/randym/axlsx.git', ref: 'c8ac844'
 gem 'caxlsx_rails'
 
 group :test do
