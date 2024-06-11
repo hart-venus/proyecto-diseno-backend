@@ -13,25 +13,25 @@ class ProfessorsController < ApplicationController
       coordinator: false,
       campus: params[:campus]
     }
-    
+
     existing_professor = FirestoreDB.col('professors').where('email', '==', params[:email]).get.first
     if existing_professor.present?
       render json: { error: 'Email already exists' }, status: :unprocessable_entity
       return
     end
-    
+
     photo = params[:photo]
     if photo.present?
       photo_url = upload_photo(photo)
       professor_data[:photo_url] = photo_url
     end
-    
+
     professor = Professor.new(professor_data)
-    
+
     if professor.valid?
       # Generar una contraseña aleatoria para el usuario
       password = SecureRandom.base64(10)
-      
+
       user_data = {
         email: params[:email],
         full_name: params[:full_name],
@@ -39,19 +39,19 @@ class ProfessorsController < ApplicationController
         campus: params[:campus],
         password: encrypt_password(password)
       }
-      
+
       user = create_user(user_data)
-      
+
       if user.present?
         professor.user_id = user[:id]
-        
+
         professor_ref = create_professor(professor)
         if professor_ref.present?
           send_welcome_email(professor, user[:email], password)
-          
+
           # Obtener el ID del usuario que realiza la modificación desde los parámetros
           modified_by_user_id = params[:modified_by_user_id]
-          
+
           # Guardar registro de modificación
           ProfessorModification.create(
             professor_code: professor.code,
@@ -59,7 +59,7 @@ class ProfessorsController < ApplicationController
             modification_type: 'Creación',
             new_data: professor_ref.data
           )
-          
+
           render json: professor_ref.data.merge(id: professor_ref.document_id), status: :created
         else
           render json: { error: 'Failed to create professor' }, status: :unprocessable_entity
@@ -71,7 +71,7 @@ class ProfessorsController < ApplicationController
       render json: { errors: professor.errors.full_messages }, status: :unprocessable_entity
     end
   end
-  
+
   def create_user(user_data)
     user = User.new(user_data)
     if user.valid?
@@ -82,7 +82,7 @@ class ProfessorsController < ApplicationController
       nil
     end
   end
-  
+
   def create_professor(professor)
     professor_ref = FirestoreDB.col('professors').add(professor.attributes)
     professor_ref.get
@@ -112,7 +112,7 @@ class ProfessorsController < ApplicationController
     end
   end
 
-  ## Modificar el usuario para la asistente administrativa (Si lo modifica se reinicia la contraseña del profesor)
+  ## Modificar el usuario para la asistente administrativa (Si lo modifica ya no se reinicia la contraseña del profesor)
   def update
     code = params[:code]
     professor_data = {
@@ -123,27 +123,27 @@ class ProfessorsController < ApplicationController
       status: params[:status],
       campus: params[:campus] # Agregar el atributo campus al hash professor_data
     }
-    
+
     # Convertir el valor de 'coordinator' a booleano
     if params[:coordinator].present?
       coordinator = ActiveModel::Type::Boolean.new.cast(params[:coordinator])
       professor_data[:coordinator] = coordinator
     end
-    
+
     photo = params[:photo]
     if photo.present?
       photo_url = upload_photo(photo)
       professor_data[:photo_url] = photo_url
     end
-    
+
     professor = FirestoreDB.col('professors').where('code', '==', code).get.first
     if professor.present?
       professor_ref = professor.ref
       previous_data = professor.data
-      
+
       email_changed = false
       campus_changed = false
-      
+
       # Verificar si el correo electrónico ya está en uso por otro profesor
       if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
         existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
@@ -154,59 +154,54 @@ class ProfessorsController < ApplicationController
           email_changed = true
         end
       end
-      
+
       # Verificar si el campus ha cambiado
       if professor_data[:campus].present? && professor_data[:campus] != professor.data[:campus]
         campus_changed = true
       end
-      
+
       # Actualizar los atributos del profesor
       professor_data.each do |key, value|
         professor_ref.update({ key => value }) if value.present?
       end
-      
+
       # Obtener el profesor actualizado desde Firestore
       updated_professor = professor_ref.get
-      
+
       # Obtener el usuario asociado al profesor
       user_id = updated_professor.data[:user_id]
       user_doc = FirestoreDB.col('users').doc(user_id).get
-      
+
       if user_doc.exists?
         user_data = user_doc.data
         updated_user_data = {}
-        
-        # Generar una nueva contraseña para el usuario
-        new_password = SecureRandom.base64(10)
-        
-        # Encriptar la nueva contraseña
-        encrypted_password = encrypt_password(new_password)
-        
-        # Agregar la contraseña actualizada al nuevo hash
-        updated_user_data[:password] = encrypted_password
-        
+
         # Actualizar el correo electrónico del usuario si ha cambiado
         if email_changed
           updated_user_data[:email] = professor_data[:email]
         end
-        
+
         # Actualizar el campus del usuario si ha cambiado
         if campus_changed
           updated_user_data[:campus] = professor_data[:campus]
         end
-        
+
+        if params[:full_name].present?
+            updated_user_data[:full_name] = params[:full_name]
+        end
+
         # Combinar los datos existentes con los datos actualizados
         updated_user_data = user_data.merge(updated_user_data)
-        
+
         user_doc.ref.set(updated_user_data)
-        
+
         # Enviar correo electrónico con las nuevas credenciales
-        ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
+        ProfessorMailer.credentials_email_no_password(updated_professor.data, updated_user_data[:email]).deliver_now
       end
-      
+
       # Obtener el ID del usuario que realiza la modificación desde los parámetros
       modified_by_user_id = params[:modified_by_user_id]
-      
+
       # Guardar registro de modificación
       ProfessorModification.create(
         professor_code: updated_professor.data[:code],
@@ -215,13 +210,13 @@ class ProfessorsController < ApplicationController
         previous_data: previous_data,
         new_data: updated_professor.data
       )
-      
+
       render json: updated_professor.data.merge(id: updated_professor.document_id)
     else
       render json: { error: 'Professor not found' }, status: :not_found
     end
   end
-  
+
   def update_profile
   code = params[:code]
   professor_data = {
@@ -232,22 +227,22 @@ class ProfessorsController < ApplicationController
     status: params[:status],
     campus: params[:campus] # Agregar el atributo campus al hash professor_data
   }
-  
+
   new_password = params[:new_password]
-  
+
   photo = params[:photo]
   if photo.present?
     photo_url = upload_photo(photo)
     professor_data[:photo_url] = photo_url
   end
-  
+
   professor = FirestoreDB.col('professors').where('code', '==', code).get.first
   if professor.present?
     professor_ref = professor.ref
-    
+
     email_changed = false
     campus_changed = false
-    
+
     # Verificar si el correo electrónico ya está en uso por otro profesor
     if professor_data[:email].present? && professor_data[:email] != professor.data[:email]
       existing_professor = FirestoreDB.col('professors').where('email', '==', professor_data[:email]).get.first
@@ -258,55 +253,55 @@ class ProfessorsController < ApplicationController
         email_changed = true
       end
     end
-    
+
     # Verificar si el campus ha cambiado
     if professor_data[:campus].present? && professor_data[:campus] != professor.data[:campus]
       campus_changed = true
     end
-    
+
     # Actualizar los atributos del profesor
     professor_data.each do |key, value|
       professor_ref.update({ key => value }) if value.present?
     end
-    
+
     # Obtener el profesor actualizado desde Firestore
     updated_professor = professor_ref.get
-    
+
     # Obtener el usuario asociado al profesor
     user_id = updated_professor.data[:user_id]
     user_doc = FirestoreDB.col('users').doc(user_id).get
-    
+
     if user_doc.exists?
       user_data = user_doc.data
       updated_user_data = {}
-      
+
       if new_password.present?
         # Encriptar la nueva contraseña
         encrypted_password = encrypt_password(new_password)
-        
+
         # Agregar la contraseña actualizada al nuevo hash
         updated_user_data[:password] = encrypted_password
       end
-      
+
       if email_changed
         updated_user_data[:email] = professor_data[:email]
       end
-      
+
       if campus_changed
         updated_user_data[:campus] = professor_data[:campus]
       end
-      
+
       # Combinar los datos existentes con los datos actualizados
       updated_user_data = user_data.merge(updated_user_data)
-      
+
       user_doc.ref.set(updated_user_data)
-      
+
       if email_changed || new_password.present?
         # Enviar correo electrónico con las credenciales actualizadas
         ProfessorMailer.credentials_email(updated_professor.data, updated_user_data[:email], new_password).deliver_now
       end
     end
-    
+
     render json: updated_professor.data
   else
     render json: { error: 'Professor not found' }, status: :not_found
@@ -325,10 +320,10 @@ end
   def toggle_coordinator
     code = params[:code]
     professor = FirestoreDB.col('professors').where('code', '==', code).get.first
-    
+
     if professor.present?
       professor_ref = professor.ref
-      
+
       if professor.data[:coordinator]
         # Desactivar el estado de coordinador
         professor_ref.update({ coordinator: false })
@@ -339,19 +334,19 @@ end
                                            .where('campus', '==', campus)
                                            .where('coordinator', '==', true)
                                            .get.first
-        
+
         if existing_coordinator.present?
           render json: { error: 'Another professor is already assigned as coordinator for this campus' }, status: :unprocessable_entity
           return
         end
-        
+
         # Activar el estado de coordinador
         professor_ref.update({ coordinator: true })
       end
-      
+
       # Obtener el profesor actualizado desde Firestore
       updated_professor = professor_ref.get
-      
+
       render json: updated_professor.data.merge(id: updated_professor.document_id)
     else
       render json: { error: 'Professor not found' }, status: :not_found
@@ -362,13 +357,13 @@ end
 
   def search
     query = params[:query]&.downcase
-  
+
     if query.present?
       professors = FirestoreDB.col('professors').get.to_a
       matching_professors = professors.select do |prof|
         prof.data.values.any? { |value| value.to_s.downcase.include?(query) }
       end
-  
+
       if matching_professors.empty?
         render json: { message: 'No se encontraron profesores que coincidan con la búsqueda' }, status: :not_found
       else
@@ -376,7 +371,7 @@ end
       end
     else
       professors = FirestoreDB.col('professors').get.to_a
-  
+
       if professors.empty?
         render json: { message: 'No se encontraron profesores' }, status: :not_found
       else
@@ -384,7 +379,7 @@ end
       end
     end
   end
-  
+
   def get_professor
     code = params[:code]
     validate_code(code)
@@ -396,7 +391,7 @@ end
       render json: { error: 'Professor not found' }, status: :not_found
     end
   end
-  
+
   def get_photo
     code = params[:code]
     validate_code(code)
@@ -425,7 +420,12 @@ end
       render json: { error: 'Professor not found' }, status: :not_found
     end
   end
-  
+
+  def get_professors
+      professors = FirestoreDB.col('professors').get.to_a
+      render json: professors.map { |prof| prof.data.merge(id: prof.document_id) }
+  end
+
   def get_professors_by_campus
     campus = params[:campus]
     validate_campus(campus)
@@ -437,7 +437,7 @@ end
       render json: professors.map { |prof| prof.data.merge(id: prof.document_id) }
     end
   end
-  
+
   def get_active_professors
     professors = FirestoreDB.col('professors').where('status', '==', 'active').get
     if professors.empty?
@@ -446,7 +446,7 @@ end
       render json: professors.map { |prof| prof.data.merge(id: prof.document_id) }
     end
   end
-  
+
   def get_inactive_professors
     professors = FirestoreDB.col('professors').where('status', '==', 'inactive').get
     if professors.empty?
