@@ -263,7 +263,7 @@ class StudentsController < ApplicationController
   def show
     student = StudentDecorator.find(params[:id])
     if student.present?
-      render json: student_response(student)
+      render json: student_user_response(student)
     else
       render json: { error: 'Estudiante no encontrado' }, status: :not_found
     end
@@ -276,11 +276,19 @@ class StudentsController < ApplicationController
       full_name: student.full_name,
       email: student.email,
       phone: student.phone,
-      campus: student.campus,
-      photo_url: student.photo_url,
-      user_id: student.user_id
+      campus: student.campus
     }
   end
+
+  def student_user_response(student)
+      # get data from student_response
+      data = student_response(student)
+      # append student.user_id and student.image_url
+      data[:user_id] = student.user_id
+      data[:photo_url] = student.photo_url
+      data
+  end
+
   def student_params
     params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus)
   end
