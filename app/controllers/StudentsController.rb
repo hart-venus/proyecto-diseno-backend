@@ -280,6 +280,6 @@ class StudentsController < ApplicationController
     }
   end
   def student_params
-    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus)
+    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus, :user_id, :photo_url)
   end
 end
