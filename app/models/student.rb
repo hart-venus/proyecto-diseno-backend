@@ -21,6 +21,9 @@ class Student
     @email = attributes[:email]
     @phone = attributes[:phone]
     @campus = attributes[:campus]
+    # parse carne and phone number to int if exists
+    @carne = @carne ? @carne.to_i.to_s : nil
+    @phone = @phone ? @phone.to_i.to_s : nil
   end
 
   def full_name
@@ -29,8 +32,6 @@ class Student
 
   def save
     if valid?
-      # parse carne to int if exists
-      @carne = @carne ? @carne.to_i.to_s : nil
       student_data = {
         carne: @carne,
         last_name1: @last_name1,
