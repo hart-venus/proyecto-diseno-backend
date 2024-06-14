@@ -81,8 +81,9 @@ class Student
         phone: @phone,
         campus: @campus
       }
-      FirestoreDB.col('students').doc(@carne).update(student_data)
-      true
+      student_ref = FirestoreDB.col('students').doc(@carne)
+      student_ref.update(student_data)
+      student_ref # truthy
     else
       false
     end

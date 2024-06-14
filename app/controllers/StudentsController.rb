@@ -8,7 +8,7 @@ class StudentsController < ApplicationController
 
   # Actualizar un estudiante
   def update
-    student = Student.find(params[:id])
+    student = StudentDecorator.find(params[:id])
 
     if student.nil?
       render json: { error: 'Estudiante no encontrado' }, status: :not_found
@@ -16,7 +16,7 @@ class StudentsController < ApplicationController
     end
 
     if student.update(student_params)
-      render json: student_response(student)
+      render json: student_user_response(student)
     else
       render json: { error: student.errors.full_messages.join(', ') }, status: :unprocessable_entity
     end
@@ -290,6 +290,6 @@ class StudentsController < ApplicationController
   end
 
   def student_params
-    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus)
+    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus, :photo, :password, :id)
   end
 end
