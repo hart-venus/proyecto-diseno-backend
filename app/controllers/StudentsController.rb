@@ -9,7 +9,7 @@ class StudentsController < ApplicationController
   # Actualizar un estudiante
   def update
     student = Student.find(params[:id])
-    
+
     if student.nil?
       render json: { error: 'Estudiante no encontrado' }, status: :not_found
       return
@@ -25,7 +25,7 @@ class StudentsController < ApplicationController
   # Eliminar un estudiante
   def destroy
     student = Student.find(params[:id])
-    
+
     if student.nil?
       render json: { error: 'Estudiante no encontrado' }, status: :not_found
       return
@@ -113,7 +113,7 @@ class StudentsController < ApplicationController
         name1 = full_name_parts[2]
         name2 = full_name_parts[3..-1].join(' ') if full_name_parts.length > 3
 
-        student = Student.new(
+        student = StudentDecorator.new(
           carne: row[:carne],
           last_name1: last_name1,
           last_name2: last_name2,
@@ -178,7 +178,7 @@ class StudentsController < ApplicationController
 
   def fuzzy_search
     query = params[:query].downcase
-    
+
     if query.present?
       students = FirestoreDB.col('students').get.select do |student_doc|
         student = Student.new(student_doc.data.merge(id: student_doc.document_id))
@@ -191,7 +191,7 @@ class StudentsController < ApplicationController
         student.phone.to_s.include?(query) ||
         student.campus.downcase.include?(query)
       end
-      
+
       if students.empty?
         render json: { message: 'No se encontraron estudiantes que coincidan con la búsqueda' }, status: :not_found
       else
@@ -204,7 +204,7 @@ class StudentsController < ApplicationController
 
   def export_to_excel
     campus = params[:campus]
-    
+
     if campus.present?
       # Si se proporciona un campus específico, obtener los estudiantes de ese campus
       students = FirestoreDB.col('students').where('campus', '==', campus).get.map do |student_doc|
@@ -216,11 +216,11 @@ class StudentsController < ApplicationController
         Student.new(student_doc.data.merge(id: student_doc.document_id))
       end
     end
-    
+
     # Crear un nuevo paquete de Excel
     package = Axlsx::Package.new
     workbook = package.workbook
-    
+
     if campus.present?
       # Si se proporciona un campus, crear una hoja de cálculo para ese campus
       create_worksheet(workbook, "Estudiantes - #{campus}", students)
@@ -228,24 +228,24 @@ class StudentsController < ApplicationController
       # Si no se proporciona un campus, crear una hoja de cálculo para cada campus
       Constants::CAMPUSES.each do |campus_key, campus_value|
         campus_students = students.select { |student| student.campus == campus_value }
-        
+
         # Saltar al siguiente campus si no hay estudiantes para el campus actual
         next if campus_students.empty?
-        
+
         create_worksheet(workbook, "Estudiantes - #{campus_value}", campus_students)
       end
     end
-  
+
     # Enviar el archivo Excel como respuesta
     send_data package.to_stream.read, type: "application/xlsx", filename: "estudiantes.xlsx"
   end
-  
+
   def create_worksheet(workbook, name, students)
     # Crear una nueva hoja de cálculo con el nombre especificado
     workbook.add_worksheet(name: name) do |sheet|
       # Agregar la fila de encabezado con los títulos de columna
       sheet.add_row ["Carne", "Nombre Completo", "Correo Electrónico", "Número de Celular", "Campus"]
-      
+
       # Agregar una fila por cada estudiante
       students.each do |student|
         sheet.add_row [

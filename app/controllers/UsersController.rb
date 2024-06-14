@@ -39,18 +39,18 @@ class UsersController < ApplicationController
   def update
     user_ref = FirestoreDB.col('users').doc(params[:id])
     user = user_ref.get
-  
+
     if user.exists?
       user_data = user.data.dup
-  
+
       if user_params[:password].present?
         user_data[:password] = encrypt_password(user_params[:password])
       end
-  
+
       user_params.slice(:full_name, :role, :campus).each do |key, value|
         user_data[key] = value
       end
-  
+
       if user_params[:email].present? && user_params[:email] != user_data[:email]
         existing_user = FirestoreDB.col('users').where('email', '==', user_params[:email]).get.first
         if existing_user.present?
@@ -60,7 +60,7 @@ class UsersController < ApplicationController
           user_data[:email] = user_params[:email]
         end
       end
-  
+
       user_ref.set(user_data)
       updated_user = user_ref.get
       render json: updated_user.data.merge(id: updated_user.document_id)
@@ -87,7 +87,12 @@ class UsersController < ApplicationController
     user = FirestoreDB.col('users').where('email', '==', email).get.first
 
     if user.present? && password_match?(user.data[:password], password)
-      render json: { message: 'Authentication successful', user_id: user.document_id }
+      if user.data[:role] != Constants::ROLES[:student]
+          render json: { message: 'Authentication successful', user_id: user.document_id }
+      else # devolver el student id del usuario si este es un estudiante
+        student_ref = FirestoreDB.col('students').where('email', '==', email).get.first
+        render json: { message: 'Authentication successful', student_id: student_ref.document_id, user_id: user.document_id }
+      end
     else
       render json: { error: 'Invalid email or password' }, status: :unauthorized
     end
@@ -95,19 +100,19 @@ class UsersController < ApplicationController
 
   def recover_password
     email = params[:email]
-    
+
     user_doc = FirestoreDB.col('users').where('email', '==', email).get.first
-    
+
     if user_doc.present?
       temporary_password = SecureRandom.base64(10)
       encrypted_password = encrypt_password(temporary_password)
-      
+
       user_doc.ref.update({ password: encrypted_password })
-      
+
       updated_user_data = user_doc.data.merge(id: user_doc.document_id)
-      
+
       ProfessorMailer.password_recovery_email(updated_user_data, email, temporary_password).deliver_now
-      
+
       render json: { message: 'Temporary password sent to the registered email' }
     else
       render json: { error: 'User not found' }, status: :not_found
@@ -120,7 +125,7 @@ class UsersController < ApplicationController
     unless validate_campus(campus)
       return
     end
-    
+
     users = FirestoreDB.collection("users").where("campus", "==", campus).get.to_a
     if users.empty?
       render json: { error: 'No users found for the specified campus' }, status: :not_found
@@ -128,13 +133,13 @@ class UsersController < ApplicationController
       render json: users.map { |user| user.data.merge(id: user.document_id) }
     end
   end
-  
+
   def find_by_role
     role = params[:role]
     unless validate_role(role)
       return
     end
-    
+
     users = FirestoreDB.collection("users").where('role', '==', role).get.to_a
     if users.empty?
       render json: { error: 'No users found for the specified role' }, status: :not_found
@@ -142,13 +147,13 @@ class UsersController < ApplicationController
       render json: users.map { |user| user.data.merge(id: user.document_id) }
     end
   end
-  
+
   def find_by_email
     email = params[:email]
     unless validate_email(email)
       return
     end
-  
+
     user = FirestoreDB.col('users').where('email', '==', email).get.first
     if user.present?
       render json: user.data.merge(id: user.document_id)
@@ -197,7 +202,7 @@ class UsersController < ApplicationController
       false
     end
   end
-  
+
   def validate_role(role)
     if Constants::ROLES.value?(role)
       true
@@ -206,7 +211,7 @@ class UsersController < ApplicationController
       false
     end
   end
-  
+
   def validate_email(email)
     if email =~ URI::MailTo::EMAIL_REGEXP
       true

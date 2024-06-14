@@ -29,6 +29,8 @@ class Student
 
   def save
     if valid?
+      # parse carne to int if exists
+      @carne = @carne ? @carne.to_i.to_s : nil
       student_data = {
         carne: @carne,
         last_name1: @last_name1,
@@ -39,13 +41,14 @@ class Student
         phone: @phone,
         campus: @campus
       }
-      FirestoreDB.col('students').doc(@carne).set(student_data)
-      true
+      student_ref = FirestoreDB.col('students').doc(@carne)
+      student_ref.set(student_data)
+      student_ref # truthy
     else
       false
     end
   end
-  
+
   def self.find(carne)
     student_doc = FirestoreDB.col('students').doc(carne).get
     if student_doc.exists?
