@@ -261,7 +261,7 @@ class StudentsController < ApplicationController
 
   # Detalles de un estudiante
   def show
-    student = Student.find(params[:id])
+    student = StudentDecorator.find(params[:id])
     if student.present?
       render json: student_response(student)
     else
@@ -276,10 +276,12 @@ class StudentsController < ApplicationController
       full_name: student.full_name,
       email: student.email,
       phone: student.phone,
-      campus: student.campus
+      campus: student.campus,
+      photo_url: student.photo_url,
+      user_id: student.user_id
     }
   end
   def student_params
-    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus, :user_id, :photo_url)
+    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus)
   end
 end
