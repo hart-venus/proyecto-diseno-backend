@@ -1,25 +1,26 @@
 class Notification
     include ActiveModel::Model
     include ActiveModel::Validations
-  
+
     attr_accessor :id, :sender, :recipient_id, :content, :status, :created_at
-  
+
     validates :sender, :recipient_id, :content, presence: true
     validates :status, inclusion: { in: ['UNREAD', 'READ'] }
-  
+
     def self.create(attributes)
       notification = new(attributes)
+      notification.status = 'UNREAD'
       if notification.valid?
         notification.created_at = Time.now
+        # generate uuid
+        notification.id = SecureRandom.uuid
         notification.status = 'UNREAD'
-        notification_ref = FirestoreDB.col('notifications').add(notification.attributes)
-        notification.id = notification_ref.document_id
         notification
       else
         nil
       end
     end
-  
+
     def self.find(id)
       doc = FirestoreDB.col('notifications').doc(id).get
       if doc.exists?
@@ -30,7 +31,7 @@ class Notification
         nil
       end
     end
-  
+
     def self.find_by_recipient(recipient_id)
       notifications = []
       FirestoreDB.col('notifications').where('recipient_id', '==', recipient_id).order_by('created_at', 'desc').get do |notification_doc|
@@ -40,11 +41,11 @@ class Notification
       end
       notifications
     end
-  
+
     def mark_as_read
       update(status: 'READ')
     end
-  
+
     def update(attributes)
       attrs = self.attributes.dup
       attrs.merge!(attributes)
@@ -55,7 +56,7 @@ class Notification
         false
       end
     end
-  
+
     def attributes
       {
         id: id,

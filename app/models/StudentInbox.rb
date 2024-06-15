@@ -9,7 +9,7 @@ class StudentInbox
   def self.find_by_student(student_carne)
     inbox_doc = FirestoreDB.col('student_inboxes').doc(student_carne).get
     if inbox_doc.exists?
-      notifications = inbox_doc.data[:notifications].map { |notification_data| Notification.new(notification_data) }
+      notifications = inbox_doc.data[:notifications].map { |notification_data| Notification.new(notification_data).attributes }
       new(student_carne: student_carne, notifications_list: notifications)
     else
       nil
@@ -22,7 +22,7 @@ class StudentInbox
 
   def add_notification(notification)
     @notifications_list ||= []
-    @notifications_list << notification
+    @notifications_list << notification.attributes
     update_notifications_in_firestore
   end
 
@@ -47,6 +47,6 @@ class StudentInbox
 
   def update_notifications_in_firestore
     inbox_ref = FirestoreDB.col('student_inboxes').doc(student_carne)
-    inbox_ref.update({ notifications: notifications.map(&:attributes) })
+    inbox_ref.update({ notifications: notifications })
   end
 end
