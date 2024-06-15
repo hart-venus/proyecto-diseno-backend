@@ -19,8 +19,8 @@ class NotificationsController < ApplicationController
     end
 
     def mark_as_read
-      @notification = @inbox.notifications.find(params[:id])
-      if @notification.update(status: 'READ')
+      @notification = @inbox.update(params[:id], {status: 'READ'})
+      unless @notification.nil?
         render json: @notification
       else
         render json: { errors: @notification.errors.full_messages }, status: :unprocessable_entity
@@ -47,15 +47,15 @@ class NotificationsController < ApplicationController
         return
       end
 
-      students = Student.where(campus: campus)
+      students = Student.find_by_campus(campus)
       students.each do |student|
-        inbox = StudentInbox.find_by_student(student.carne) || StudentInbox.new(student_carne: student.carne)
+        inbox = StudentInbox.find_by_student(student.carne)
         notification_params = {
           sender: sender,
-          content: content
+          content: content,
+          recipient_id: student.carne
         }
-        inbox.create_notification(notification_params)
-        inbox.save
+        inbox.add_notification(Notification.create(notification_params))
       end
 
       render json: { message: 'Notifications sent successfully' }, status: :ok

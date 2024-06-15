@@ -60,6 +60,11 @@ class Student
     end
   end
 
+  def self.find_by_campus(campus)
+    students = FirestoreDB.col('students').where('campus', '==', campus).get
+    students.map { |student_doc| new(student_doc.data) }
+  end
+
   def update(attributes)
     attributes = attributes.dup # Crear una copia del hash para evitar modificar el original
 

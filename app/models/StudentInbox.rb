@@ -43,6 +43,18 @@ class StudentInbox
     end
   end
 
+  def update(id, attributes)
+    # change the attributes in the attributes hash (the rest of the hash should be the same)
+    for i in 0..@notifications_list.length do
+      if @notifications_list[i][:id] == id
+        @notifications_list[i].merge!(attributes)
+        update_notifications_in_firestore
+        return @notifications_list[i]
+      end
+    end
+    nil
+  end
+
   private
 
   def update_notifications_in_firestore
