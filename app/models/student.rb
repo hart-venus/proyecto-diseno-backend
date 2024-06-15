@@ -101,4 +101,14 @@ class Student
     @campus = nil
     true
   end
+
+  def self.find_by_user_id(user_id)
+    student_doc = FirestoreDB.col('students').where('user_id', '==', user_id).limit(1).get.first
+    if student_doc
+      student_data = student_doc.data
+      new(student_data)
+    else
+      nil
+    end
+  end
 end

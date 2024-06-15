@@ -63,6 +63,27 @@ class Activity
     FirestoreDB.col('activities').doc(id).update(evidences: attrs['evidences'])
   end
 
+  # Acepta un visitor para la actividad y la fecha del sistema global
+  def accept(visitor, global_system_date)
+    visitor.visit(self, global_system_date)
+  end
+
+  # Regresa un arreglo con las fechas de notificación de la actividad
+  def reminder_dates
+    return [] unless publication_date && reminder_days
+
+    # Regresa un arreglo con las fechas de notificación de la actividad
+    # a partir de la fecha de publicación y la cantidad de días de anticipación
+    (1..reminder_days).map { |days| publication_date + days }
+
+  end
+
+  # Cancela la actividad y notifica a los responsables
+  def cancel(reason)
+    update(status: 'CANCELADA', cancel_reason: reason)
+    NotificationCenter.notify(self, 'CANCELLATION', "Activity canceled: #{name}. Reason: #{reason}")
+  end
+
   def attributes
     {
       id: id,

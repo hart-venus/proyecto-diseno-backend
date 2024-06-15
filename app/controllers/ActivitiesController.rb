@@ -1,3 +1,4 @@
+# app/controllers/activities_controller.rb
 class ActivitiesController < ApplicationController
   skip_forgery_protection
   require 'firebase'
@@ -6,6 +7,13 @@ class ActivitiesController < ApplicationController
     work_plan_id = params[:work_plan_id]
     if work_plan_id
       activities = Activity.find_by_work_plan(work_plan_id)
+      global_system_date = GlobalSystemDate.current_date
+
+      activities.each do |activity|
+        activity.accept(ActivityPublicationVisitor.new, global_system_date)
+        activity.accept(ActivityReminderVisitor.new, global_system_date)
+      end
+
       render json: activities.map(&:attributes)
     else
       render json: { error: 'Work plan ID is required' }, status: :bad_request
@@ -34,7 +42,11 @@ class ActivitiesController < ApplicationController
       activity.poster_url = poster_url
       activity_ref = Activity.create(activity.attributes)
       if activity_ref
-        render json: activity_ref.attributes, status: :created
+        activity = Activity.find(activity_ref.id)
+        global_system_date = GlobalSystemDate.current_date
+        activity.accept(ActivityPublicationVisitor.new, global_system_date)
+        activity.accept(ActivityReminderVisitor.new, global_system_date)
+        render json: activity.attributes, status: :created
       else
         render json: { error: 'Failed to create activity' }, status: :unprocessable_entity
       end
@@ -74,6 +86,10 @@ class ActivitiesController < ApplicationController
 
       if updated_activity.valid?
         FirestoreDB.col('activities').doc(activity.id).set(updated_activity.attributes)
+        updated_activity = Activity.find(activity.id)
+        global_system_date = GlobalSystemDate.current_date
+        updated_activity.accept(ActivityPublicationVisitor.new, global_system_date)
+        updated_activity.accept(ActivityReminderVisitor.new, global_system_date)
         render json: updated_activity.attributes
       else
         render json: { error: 'Failed to update activity', details: updated_activity.errors.full_messages }, status: :unprocessable_entity
@@ -162,13 +178,7 @@ class ActivitiesController < ApplicationController
       cancel_reason = params[:cancel_reason]
 
       if cancel_reason.present?
-        update_attrs = {
-          status: 'CANCELADA',
-          cancel_reason: cancel_reason
-        }
-
-        FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
-
+        activity.cancel(cancel_reason)
         render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
