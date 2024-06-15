@@ -25,7 +25,13 @@ class StudentDecorator < Student
 
         @user_id = user[:id]
         student_ref.set({user_id: @user_id, photo_url: @photo_url}, merge: true)
+
+        # Crear un inbox asociado al estudiante
+        create_student_inbox
+
         return true
+
+        
     end
 
     def update(attributes)
@@ -68,4 +74,9 @@ class StudentDecorator < Student
         file_obj = bucket.create_file(photo.tempfile, file_path, content_type: photo.content_type)
         file_obj.public_url
     end
+
+    def create_student_inbox
+        inbox = StudentInbox.new(student_carne: @carne)
+        inbox.save
+      end
 end

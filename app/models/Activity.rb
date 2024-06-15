@@ -75,13 +75,24 @@ class Activity
     # Regresa un arreglo con las fechas de notificación de la actividad
     # a partir de la fecha de publicación y la cantidad de días de anticipación
     (1..reminder_days).map { |days| publication_date + days }
+  end
 
+  def notify_announcement
+    NotificationCenter.notify(self, 'ANNOUNCEMENT', "The activity will take place on #{date} at #{time}.")
+  end
+
+  def notify_reminder
+    NotificationCenter.notify(self, 'REMINDER', "The activity will take place on #{date} at #{time}.")
+  end
+
+  def notify_cancellation
+    NotificationCenter.notify(self, 'CANCELLATION', "Activity canceled: #{name}. Reason: #{cancel_reason}")
   end
 
   # Cancela la actividad y notifica a los responsables
   def cancel(reason)
     update(status: 'CANCELADA', cancel_reason: reason)
-    NotificationCenter.notify(self, 'CANCELLATION', "Activity canceled: #{name}. Reason: #{reason}")
+    notify_cancellation
   end
 
   def attributes

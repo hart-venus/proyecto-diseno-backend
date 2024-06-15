@@ -87,6 +87,29 @@ Rails.application.routes.draw do
 
   get '/comments/:parent_comment_id/replies' , to: 'activity_comments#direct_reply_comments'
 
+  # Rutas para el controlador de GlobalSystemDates
+
+  get 'system_date', to: 'system_dates#show'
+  put 'system_date', to: 'system_dates#update'
+  post 'system_date/increment', to: 'system_dates#increment'
+  post 'system_date/decrement', to: 'system_dates#decrement'
+
+
+  # Ruta para listar las notificaciones de un estudiante específico
+  get '/students/:student_carne/notifications', to: 'notifications#index', as: 'student_notifications'
+
+  # Ruta para crear una nueva notificación para un estudiante específico
+  post '/students/:student_carne/notifications', to: 'notifications#create', as: 'create_student_notification'
+
+  # Ruta para marcar una notificación como leída para un estudiante específico
+  post '/students/:student_carne/notifications/:id/mark_as_read', to: 'notifications#mark_as_read', as: 'mark_as_read_student_notification'
+
+  # Ruta para eliminar una notificación para un estudiante específico
+  delete '/students/:student_carne/notifications/:id', to: 'notifications#destroy', as: 'destroy_student_notification'
+
+  # Ruta para enviar una notificación a todos los estudiantes de un campus específico
+  post '/send_notification_to_campus', to: 'notifications#send_notification_to_campus', as: 'send_notification_to_campus'
+
 end
 
 

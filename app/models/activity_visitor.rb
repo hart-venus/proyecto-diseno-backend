@@ -15,7 +15,10 @@ module ActivityVisitor
         activity.update(status: 'NOTIFICADA')
 
         # Notificar a los estudiantes del campus de la actividad
-        NotificationCenter.notify(activity, 'PUBLICATION', "New activity: #{activity.name}")
+        # Se comunica con el observer que va a notificar a los estudiantes
+
+
+
       end
     end
   end
@@ -29,7 +32,10 @@ module ActivityVisitor
       # Si la actividad está notificada y la fecha de recordatorio está en la lista de fechas de recordatorio
       if activity.status == 'NOTIFICADA' && activity.reminder_dates.include?(global_system_date)
         # Notificar a los estudiantes del campus de la actividad
-        NotificationCenter.notify(activity, 'REMINDER', "Reminder: #{activity.name} is coming up soon")
+        # Se comunica con el observer que va a notificar a los estudiantes
+
+
+        
       end
     end
   end
