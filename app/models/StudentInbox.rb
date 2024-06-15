@@ -55,6 +55,17 @@ class StudentInbox
     nil
   end
 
+  def delete(id)
+    for i in 0..@notifications_list.length do
+      if @notifications_list[i][:id] == id
+        @notifications_list.delete_at(i)
+        update_notifications_in_firestore
+        return true
+      end
+    end
+    false
+  end
+
   private
 
   def update_notifications_in_firestore

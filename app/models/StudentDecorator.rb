@@ -31,7 +31,7 @@ class StudentDecorator < Student
 
         return true
 
-        
+
     end
 
     def update(attributes)
@@ -53,6 +53,15 @@ class StudentDecorator < Student
             student_ref.set({photo_url: photo_url}, merge: true)
         end
 
+        true
+    end
+
+    def destroy
+        super # se elimina el estudiante
+        user_ref = FirestoreDB.col('users').doc(@user_id)
+        user_ref.delete
+        inbox_ref = FirestoreDB.col('student_inboxes').doc(@carne)
+        inbox_ref.delete
         true
     end
 

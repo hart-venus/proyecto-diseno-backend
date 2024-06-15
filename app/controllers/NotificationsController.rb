@@ -28,12 +28,10 @@ class NotificationsController < ApplicationController
     end
 
     def destroy
-      @notification = @inbox.notifications.find(params[:id])
-      if @notification.status == 'READ'
-        @notification.destroy
-        head :no_content
+      if @inbox.delete(params[:id])
+        render json: { message: 'Notification deleted successfully' }, status: :ok
       else
-        render json: { error: 'Cannot delete unread notification' }, status: :unprocessable_entity
+        render json: { error: 'Notification not found' }, status: :not_found
       end
     end
 
