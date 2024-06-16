@@ -47,38 +47,19 @@ Rails.application.routes.draw do
   put '/work_plans/:id', to: 'work_plans#update'
 
   # Endpoints para actividades (Activities)
-    # Listar actividades de un plan de trabajo
-  get '/activities', to: 'activities#index'
-
-  get '/activity/notified', to: 'activities#notified'
-
-  # Mostrar detalles de una actividad
-  get '/activities/:id', to: 'activities#show'
-
-  # Obtener poster de una actividad
-  get '/activities/:id/poster', to: 'activities#poster'
-
-  # Crear una nueva actividad
-  post '/activities', to: 'activities#create'
-
-  # Actualizar una actividad existente
-  put '/activities/:id', to: 'activities#update'
-  patch '/activities/:id', to: 'activities#update'
-
-  # Agregar evidencia a una actividad
-  post '/activities/:id/evidences', to: 'activities#add_evidence'
-
-  # Activar una actividad
-  post '/activities/:id/activate', to: 'activities#activate'
-
-  # Notificar una actividad
-  patch '/activities/:id/notify', to: 'activities#notify'
-
-  # Marcar una actividad como realizada
-  post '/activities/:id/done', to: 'activities#mark_as_done'
-
-  # Cancelar una actividad
-  post '/activities/:id/cancel', to: 'activities#cancel'
+  # Activities routes
+  get 'activities', to: 'activities#index'
+  get 'activities/:id', to: 'activities#show'
+  post 'activities', to: 'activities#create'
+  put 'activities/:id', to: 'activities#update'
+  post 'activities/:id/evidence', to: 'activities#add_evidence'
+  put 'activities/:id/activate', to: 'activities#activate'
+  put 'activities/:id/notify', to: 'activities#notify'
+  put 'activities/:id/mark_as_done', to: 'activities#mark_as_done'
+  put 'activities/:id/cancel', to: 'activities#cancel'
+  get 'activities/notified', to: 'activities#notified'
+  get 'activities/:id/poster', to: 'activities#poster'
+  get 'activities/:id/should_notify', to: 'activities#should_notify'
 
   # Agregar Comentarios
   post '/comments/:activity_id', to: 'activity_comments#create'
