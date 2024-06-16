@@ -93,6 +93,10 @@ class Activity
     dates
   end
 
+  def is_remote?
+    !!is_remote
+  end
+
   def cancel(cancel_reason)
     self.status = 'CANCELADA'
     self.cancel_reason = cancel_reason
