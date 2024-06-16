@@ -105,6 +105,7 @@ class Activity
     activity.is_remote = params[:is_remote]
     activity.meeting_link = params[:meeting_link]
     activity.poster_url = params[:poster_url]
+    activity.publication_date = params[:publication_date]
     activity
   end
 
@@ -136,7 +137,6 @@ class Activity
 
   def calculate_dates
     self.realization_date = Date.parse(realization_date) if realization_date.is_a?(String)
-    self.publication_date = realization_date - publication_days_before.days
-    self.notification_date = publication_date
+    self.notification_date = publication_date + publication_days_before.days
   end
 end

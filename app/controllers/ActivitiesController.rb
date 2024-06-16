@@ -28,7 +28,6 @@ class ActivitiesController < ApplicationController
     :reminder_frequency_days, :is_remote, :meeting_link, :poster_file,
     responsible_ids: [])
 
-  
     activity = Activity.init(activity_params.except(:activity))
     activity.status = 'PLANEADA'
   
