@@ -43,16 +43,15 @@ class StudentInbox
     end
   end
 
-  def update(id, attributes)
-    # change the attributes in the attributes hash (the rest of the hash should be the same)
-    for i in 0..@notifications_list.length do
-      if @notifications_list[i][:id] == id
-        @notifications_list[i].merge!(attributes)
-        update_notifications_in_firestore
-        return @notifications_list[i]
-      end
+  def update(notification_id, attributes)
+    notification = notifications.find { |n| n[:id] == notification_id }
+    if notification
+      notification.merge!(attributes)
+      update_notifications_in_firestore
+      Notification.new(notification)
+    else
+      nil
     end
-    nil
   end
 
   def delete(id)
@@ -72,4 +71,5 @@ class StudentInbox
     inbox_ref = FirestoreDB.col('student_inboxes').doc(student_carne)
     inbox_ref.update({ notifications: notifications })
   end
+  
 end

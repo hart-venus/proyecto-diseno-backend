@@ -84,20 +84,12 @@ Rails.application.routes.draw do
   post 'system_date/decrement', to: 'system_dates#decrement'
 
 
-  # Ruta para listar las notificaciones de un estudiante específico
-  get '/students/:student_carne/notifications', to: 'notifications#index', as: 'student_notifications'
+  get 'student_inbox/:student_carne', to: 'student_inbox#show'
+  get 'student_inbox/:student_carne/fuzzy_search', to: 'student_inbox#fuzzy_search'
+  get 'student_inbox/:student_carne/filter_by_status', to: 'student_inbox#filter_by_status'
 
-  # Ruta para crear una nueva notificación para un estudiante específico
-  post '/students/:student_carne/notifications', to: 'notifications#create', as: 'create_student_notification'
-
-  # Ruta para marcar una notificación como leída para un estudiante específico
-  post '/students/:student_carne/notifications/:id/mark_as_read', to: 'notifications#mark_as_read', as: 'mark_as_read_student_notification'
-
-  # Ruta para eliminar una notificación para un estudiante específico
-  delete '/students/:student_carne/notifications/:id', to: 'notifications#destroy', as: 'destroy_student_notification'
-
-  # Ruta para enviar una notificación a todos los estudiantes de un campus específico
-  post '/send_notification_to_campus', to: 'notifications#send_notification_to_campus', as: 'send_notification_to_campus'
+  put 'student_inbox/:student_carne/notifications/:notification_id/mark_as_read', to: 'student_inbox#mark_as_read'
+  delete 'student_inbox/:student_carne/notifications/:notification_id', to: 'student_inbox#destroy'
 
 end
 
