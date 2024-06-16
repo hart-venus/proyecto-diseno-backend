@@ -1,4 +1,3 @@
-# app/controllers/activities_controller.rb
 class ActivitiesController < ApplicationController
   skip_forgery_protection
   require 'firebase'
@@ -7,13 +6,6 @@ class ActivitiesController < ApplicationController
     work_plan_id = params[:work_plan_id]
     if work_plan_id
       activities = Activity.find_by_work_plan(work_plan_id)
-      global_system_date = GlobalSystemDate.current_date
-
-      activities.each do |activity|
-        activity.accept(ActivityPublicationVisitor.new, global_system_date)
-        activity.accept(ActivityReminderVisitor.new, global_system_date)
-      end
-
       render json: activities.map(&:attributes)
     else
       render json: { error: 'Work plan ID is required' }, status: :bad_request
@@ -30,27 +22,66 @@ class ActivitiesController < ApplicationController
   end
 
   def create
-    activity_params_with_week = activity_params.merge(
-      week: activity_params[:week].to_i,
-      announcement_days: activity_params[:announcement_days].to_i,
-      reminder_days: activity_params[:reminder_days].to_i
-    )
-    activity = Activity.new(activity_params_with_week.except(:poster_file))
-    activity.status = 'PLANEADA' # Asignar el estado inicial como "PLANEADA"
+    puts "Received parameters: #{params.inspect}"
+    activity_params = params.except(:activity).permit(:work_plan_id, :week, :activity_type, :name, :realization_date,
+    :realization_time, :responsible_ids, :publication_days_before,
+    :reminder_frequency_days, :is_remote, :meeting_link, :poster_file,
+    responsible_ids: [])
+
+    activity = Activity.init(activity_params.except(:activity))
+    activity.status = 'PLANEADA'
+  
+    system_date = SystemDate.current_date
+    system_date = system_date.date
+    if system_date
+      activity.publication_date = system_date
+      print("Publication Date2: #{activity.publication_date}\n")
+    else
+      puts "Error: SystemDate.current_date returned nil"
+      render json: { error: 'Failed to set publication date' }, status: :unprocessable_entity
+      return
+    end
+  
+    work_plan = WorkPlan.find(activity.work_plan_id)
+    if work_plan
+      activity.work_plan_campus = work_plan.campus
+    else
+      puts "Error: WorkPlan not found for work_plan_id: #{activity.work_plan_id}"
+      render json: { error: 'Invalid work plan ID' }, status: :unprocessable_entity
+      return
+    end
+  
     if activity.valid?
       poster_url = upload_poster(params[:poster_file]) if params[:poster_file].present?
       activity.poster_url = poster_url
       activity_ref = Activity.create(activity.attributes)
+  
       if activity_ref
-        activity = Activity.find(activity_ref.id)
-        global_system_date = GlobalSystemDate.current_date
-        activity.accept(ActivityPublicationVisitor.new, global_system_date)
-        activity.accept(ActivityReminderVisitor.new, global_system_date)
-        render json: activity.attributes, status: :created
+        # Check if the activity should be published immediately
+        publication_visitor = PublicationVisitor.new
+        begin
+          activity_ref.accept(publication_visitor)
+        rescue => e
+          puts "Error occurred while accepting PublicationVisitor: #{e.message}"
+          puts e.backtrace.join("\n")
+        end
+  
+        # Check if the activity has any reminders to be sent
+        reminder_visitor = ReminderVisitor.new
+        begin
+          activity_ref.accept(reminder_visitor)
+        rescue => e
+          puts "Error occurred while accepting ReminderVisitor: #{e.message}"
+          puts e.backtrace.join("\n")
+        end
+  
+        render json: activity_ref.attributes, status: :created
       else
+        puts "Failed to create activity: #{activity.errors.full_messages.join(', ')}"
         render json: { error: 'Failed to create activity' }, status: :unprocessable_entity
       end
     else
+      puts "Activity is invalid: #{activity.errors.full_messages.join(', ')}"
       render json: { error: 'Failed to create activity', details: activity.errors.full_messages }, status: :unprocessable_entity
     end
   end
@@ -58,41 +89,17 @@ class ActivitiesController < ApplicationController
   def update
     activity = Activity.find(params[:id])
     if activity
-      update_params = activity.attributes.dup # Crear una copia mutable de los atributos
-
-      # Actualizar atributos individualmente si están presentes en los parámetros
-      update_params[:work_plan_id] = params[:work_plan_id] if params[:work_plan_id].present?
-      update_params[:week] = params[:week].to_i if params[:week].present?
-      update_params[:activity_type] = params[:activity_type] if params[:activity_type].present?
-      update_params[:name] = params[:name] if params[:name].present?
-      update_params[:date] = params[:date] if params[:date].present?
-      update_params[:time] = params[:time] if params[:time].present?
-      update_params[:responsible_ids] = params[:responsible_ids] if params[:responsible_ids].present?
-      update_params[:announcement_days] = params[:announcement_days] if params[:announcement_days].present?
-      update_params[:reminder_days] = params[:reminder_days] if params[:reminder_days].present?
-      update_params[:is_remote] = params[:is_remote] if params[:is_remote].present?
-      update_params[:meeting_link] = params[:meeting_link] if params[:meeting_link].present?
-      update_params[:status] = activity.status
-      update_params[:cancel_reason] = activity.cancel_reason
-      update_params[:evidences] = activity.evidences
-
+      update_params = activity_params.except(:poster_file)
       if params[:poster_file].present?
         poster_url = upload_poster(params[:poster_file])
         update_params[:poster_url] = poster_url
       end
 
-      updated_activity = Activity.new(update_params)
-      updated_activity.id = activity.id
-
-      if updated_activity.valid?
-        FirestoreDB.col('activities').doc(activity.id).set(updated_activity.attributes)
-        updated_activity = Activity.find(activity.id)
-        global_system_date = GlobalSystemDate.current_date
-        updated_activity.accept(ActivityPublicationVisitor.new, global_system_date)
-        updated_activity.accept(ActivityReminderVisitor.new, global_system_date)
-        render json: updated_activity.attributes
+      if activity.update(update_params)
+        check_activity_with_visitors(activity)
+        render json: activity.attributes
       else
-        render json: { error: 'Failed to update activity', details: updated_activity.errors.full_messages }, status: :unprocessable_entity
+        render json: { error: 'Failed to update activity', details: activity.errors.full_messages }, status: :unprocessable_entity
       end
     else
       render json: { error: 'Activity not found' }, status: :not_found
@@ -105,8 +112,15 @@ class ActivitiesController < ApplicationController
       evidence_file = params[:evidence_file]
       if evidence_file
         evidence_url = upload_evidence(evidence_file)
-        activity.add_evidence(evidence_url)
-        render json: activity.attributes
+        activity_evidences = activity.evidences || []
+        activity_evidences << evidence_url
+
+        # Update the evidences attribute in Firebase
+        FirestoreDB.col('activities').doc(activity.id).update({ evidences: activity_evidences })
+
+        # Re-fetch the updated activity to return the latest state
+        updated_activity = Activity.find(activity.id)
+        render json: { message: 'Evidence added successfully', activity: updated_activity.attributes }
       else
         render json: { error: 'Evidence file is required' }, status: :bad_request
       end
@@ -118,27 +132,21 @@ class ActivitiesController < ApplicationController
   def activate
     activity = Activity.find(params[:id])
     if activity
-      activity.activate
+      visitor = PublicationVisitor.new
+      activity.accept(visitor)
       render json: activity.attributes
     else
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
 
-  def notify
-    activity = Activity.find(params[:id])
-
-    if activity
-      update_attrs = {
-        status: 'NOTIFICADA'
-      }
-
-      FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
-
-      render json: { message: 'Activity notified successfully' }
-    else
-      render json: { error: 'Activity not found' }, status: :not_found
+  def send_reminders
+    activities = Activity.all
+    visitor = ReminderVisitor.new
+    activities.each do |activity|
+      activity.accept(visitor)
     end
+    render json: { message: 'Reminders sent successfully' }
   end
 
   def mark_as_done
@@ -179,6 +187,10 @@ class ActivitiesController < ApplicationController
 
       if cancel_reason.present?
         activity.cancel(cancel_reason)
+
+        visitor = CancellationVisitor.new
+        activity.accept(visitor)
+
         render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
@@ -233,10 +245,29 @@ class ActivitiesController < ApplicationController
     end
   end
 
+  def should_notify
+    activity = Activity.find(params[:id])
+
+    if activity
+      system_date = SystemDate.current_date.date
+      publication_date = activity.realization_date - activity.publication_days_before.days
+
+      if system_date >= publication_date
+        render json: { should_notify: true }
+      else
+        render json: { should_notify: false }
+      end
+    else
+      render json: { error: 'Activity not found' }, status: :not_found
+    end
+  end
+
   private
 
   def activity_params
-    params.permit(:work_plan_id, :week, :activity_type, :name, :date, :time, :announcement_days, :reminder_days, :is_remote, :meeting_link, :poster_file, responsible_ids: [])
+    params.permit(:work_plan_id, :week, :activity_type, :name, :realization_date, :realization_time,
+                  :publication_days_before, :reminder_frequency_days, :is_remote, :meeting_link,
+                  :poster_file, responsible_ids: [])
   end
 
   def upload_evidence(evidence_file)
@@ -244,7 +275,10 @@ class ActivitiesController < ApplicationController
     bucket_name = 'projecto-diseno-backend.appspot.com'
     bucket = FirebaseStorage.bucket(bucket_name)
     file_obj = bucket.create_file(evidence_file.tempfile, file_path, content_type: evidence_file.content_type)
-    file_obj.make_public # Ensure the file is publicly accessible
+
+    # Set the ACL to allow public access
+    file_obj.acl.public!
+
     file_obj.public_url
   end
 
@@ -253,10 +287,18 @@ class ActivitiesController < ApplicationController
     bucket_name = 'projecto-diseno-backend.appspot.com'
     bucket = FirebaseStorage.bucket(bucket_name)
     file_obj = bucket.create_file(poster_file.tempfile, file_path, content_type: poster_file.content_type)
-    
+
     # Set the ACL to allow public access
     file_obj.acl.public!
-    
+
     file_obj.public_url
+  end
+
+  def check_activity_with_visitors(activity)
+    publication_visitor = PublicationVisitor.new
+    reminder_visitor = ReminderVisitor.new
+
+    activity.accept(publication_visitor)
+    activity.accept(reminder_visitor)
   end
 end

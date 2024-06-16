@@ -22,7 +22,7 @@ class WorkPlan
   def self.find(id)
     doc = FirestoreDB.col('work_plans').doc(id).get
     if doc.exists?
-      data = doc.data
+      data = doc.data.dup
       data['id'] = doc.document_id
       new(data)
     else
