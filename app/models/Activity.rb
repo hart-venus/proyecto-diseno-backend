@@ -20,23 +20,25 @@ class Activity
       activity.calculate_dates
       activity.announcement_sent = false
       activity.work_plan_campus = WorkPlan.find(activity.work_plan_id).campus
+
       activity_ref = FirestoreDB.col('activities').add(activity.attributes)
       activity.id = activity_ref.document_id
       activity
     else
-      nil
+      activity # return the activity object so that we can inspect its errors
     end
+  rescue => e
+    puts "Error in Activity.create: #{e.message}"
+    nil
   end
 
   def self.find(id)
     doc = FirestoreDB.col('activities').doc(id).get
-    if doc.exists?
-      data = doc.data.dup
-      data['id'] = doc.document_id
-      new(data)
-    else
-      nil
-    end
+    return nil unless doc.exists?
+
+    data = doc.data.dup
+    data['id'] = doc.document_id
+    new(data)
   end
 
   def self.find_by_work_plan(work_plan_id)
@@ -52,10 +54,17 @@ class Activity
   def update(attributes)
     attrs = self.attributes.dup
     attrs.merge!(attributes)
+    return false unless valid?
+
+    calculate_dates
+    self.work_plan_campus = WorkPlan.find(self.work_plan_id).campus
+    FirestoreDB.col('activities').doc(id).update(attrs)
+    true
+  end
+
+  def save
     if valid?
-      calculate_dates
-      self.work_plan_campus = WorkPlan.find(self.work_plan_id).campus
-      FirestoreDB.col('activities').doc(id).update(attrs)
+      FirestoreDB.col('activities').doc(id).set(attributes)
       true
     else
       false
@@ -80,6 +89,23 @@ class Activity
 
   def cancel(reason)
     update(status: 'CANCELADA', cancel_reason: reason)
+  end
+
+  def self.init(params)
+    activity = new
+    activity.work_plan_id = params[:work_plan_id]
+    activity.week = params[:week]
+    activity.activity_type = params[:activity_type]
+    activity.name = params[:name]
+    activity.realization_date = params[:realization_date]
+    activity.realization_time = params[:realization_time]
+    activity.responsible_ids = params[:responsible_ids]
+    activity.publication_days_before = params[:publication_days_before]
+    activity.reminder_frequency_days = params[:reminder_frequency_days]
+    activity.is_remote = params[:is_remote]
+    activity.meeting_link = params[:meeting_link]
+    activity.poster_url = params[:poster_url]
+    activity
   end
 
   def attributes
