@@ -8,6 +8,18 @@ class StudentsController < ApplicationController
 
   # Actualizar un estudiante
   def update
+    # si tengo full_name, dividirlo para popular name1, name2, last_name1, last_name2
+    if params[:full_name].present?
+        names = params[:full_name].split(' ')
+        params[:last_name1] = names[0]
+        params[:last_name2] = names[1]
+        params[:name1] = names[2]
+        if names[3].present?
+            params[:name2] = names[3]
+        else
+            params[:name2] = ''
+        end
+    end
     student = StudentDecorator.find(params[:id])
 
     if student.nil?
@@ -290,6 +302,6 @@ class StudentsController < ApplicationController
   end
 
   def student_params
-    params.permit(:last_name1, :last_name2, :name1, :name2, :email, :phone, :campus, :photo, :password, :id)
+    params.permit(:last_name1, :full_name, :last_name2, :name1, :name2, :email, :phone, :campus, :photo, :password, :id)
   end
 end
