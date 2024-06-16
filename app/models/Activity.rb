@@ -51,15 +51,20 @@ class Activity
     activities
   end
 
-  def update(attributes)
-    attrs = self.attributes.dup
-    attrs.merge!(attributes)
+  def update_attributes(attributes)
+    attrs = attributes.to_h
     return false unless valid?
-
+  
     calculate_dates
     self.work_plan_campus = WorkPlan.find(self.work_plan_id).campus
-    FirestoreDB.col('activities').doc(id).update(attrs)
-    true
+    attrs[:work_plan_campus] = self.work_plan_campus
+    
+    unless attrs.empty?
+      FirestoreDB.col('activities').doc(id).update(attrs)
+      true
+    else
+      false
+    end
   end
 
   def save

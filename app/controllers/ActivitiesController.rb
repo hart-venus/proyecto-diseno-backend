@@ -89,13 +89,16 @@ class ActivitiesController < ApplicationController
   def update
     activity = Activity.find(params[:id])
     if activity
-      update_params = activity_params.except(:poster_file)
+      update_params = params.permit(:work_plan_id, :week, :activity_type, :name, :realization_date, :realization_time,
+                                    :responsible_ids, :publication_days_before, :reminder_frequency_days, :is_remote,
+                                    :meeting_link, responsible_ids: [])
+  
       if params[:poster_file].present?
         poster_url = upload_poster(params[:poster_file])
         update_params[:poster_url] = poster_url
       end
-
-      if activity.update(update_params)
+  
+      if activity.update_attributes(update_params)
         check_activity_with_visitors(activity)
         render json: activity.attributes
       else
@@ -105,7 +108,6 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
   def add_evidence
     activity = Activity.find(params[:id])
     if activity

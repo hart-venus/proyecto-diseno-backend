@@ -47,16 +47,24 @@ Rails.application.routes.draw do
   put '/work_plans/:id', to: 'work_plans#update'
 
   # Endpoints para actividades (Activities)
-  # Activities routes
+  # Para buscar actividades por id de plan de trabajo
   get 'activities', to: 'activities#index'
+
+  # Para buscar actividades por id
   get 'activities/:id', to: 'activities#show'
+
+  # Para crear una actividad
   post 'activities', to: 'activities#create'
+
+  # Para actualizar una actividad
   put 'activities/:id', to: 'activities#update'
-  post 'activities/:id/evidence', to: 'activities#add_evidence'
-  put 'activities/:id/activate', to: 'activities#activate'
-  put 'activities/:id/notify', to: 'activities#notify'
-  put 'activities/:id/mark_as_done', to: 'activities#mark_as_done'
-  put 'activities/:id/cancel', to: 'activities#cancel'
+
+  # aGREGAR EVIDENCIA
+  post 'activities/:id/add_evidence', to: 'activities#add_evidence'
+  post 'activities/:id/activate', to: 'activities#activate'
+  post 'activities/send_reminders', to: 'activities#send_reminders'
+  post 'activities/:id/mark_as_done', to: 'activities#mark_as_done'
+  post 'activities/:id/cancel', to: 'activities#cancel'
   get 'activities/notified', to: 'activities#notified'
   get 'activities/:id/poster', to: 'activities#poster'
   get 'activities/:id/should_notify', to: 'activities#should_notify'
