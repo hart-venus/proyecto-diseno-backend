@@ -183,16 +183,16 @@ class ActivitiesController < ApplicationController
 
   def cancel
     activity = Activity.find(params[:id])
-
+  
     if activity
       cancel_reason = params[:cancel_reason]
-
+  
       if cancel_reason.present?
         activity.cancel(cancel_reason)
-
+  
         visitor = CancellationVisitor.new
         activity.accept(visitor)
-
+  
         render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
