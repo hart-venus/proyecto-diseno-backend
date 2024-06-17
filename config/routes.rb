@@ -40,12 +40,12 @@ Rails.application.routes.draw do
 
   # Planes de trabajo
   get '/work_plans', to: 'work_plans#index'
-  get 'work_plan/active', to: 'work_plans#active'
-  get 'work_plan/inactive', to: 'work_plans#inactive'
-  get '/work_plans/:id_p', to: 'work_plans#show'
+  get '/work_plans/active', to: 'work_plans#active', as: 'active_work_plans'
+  get '/work_plans/inactive', to: 'work_plans#inactive', as: 'inactive_work_plans'
+  get '/work_plans/:id', to: 'work_plans#show', as: 'work_plan'
   post '/work_plans', to: 'work_plans#create'
   put '/work_plans/:id', to: 'work_plans#update'
-
+  
   # Endpoints para actividades (Activities)
   # Para buscar actividades por id de plan de trabajo
   get 'activities', to: 'activities#index'
