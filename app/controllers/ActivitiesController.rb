@@ -27,17 +27,19 @@ class ActivitiesController < ApplicationController
     :realization_time, :responsible_ids, :publication_days_before,
     :reminder_frequency_days, :is_remote, :meeting_link, :poster_file,
     responsible_ids: [])
-
+    activity_params[:publication_days_before] = activity_params[:publication_days_before].to_i
+    activity_params[:reminder_frequency_days] = activity_params[:reminder_frequency_days].to_i
+    activity_params[:week] = activity_params[:week].to_i
     activity = Activity.init(activity_params.except(:activity))
     activity.status = 'PLANEADA'
   
-    system_date = SystemDate.current_date
+    system_date = SystemDateglobaldate.current_date
     system_date = system_date.date
     if system_date
       activity.publication_date = system_date
       print("Publication Date2: #{activity.publication_date}\n")
     else
-      puts "Error: SystemDate.current_date returned nil"
+      puts "Error: SystemDateglobaldate.current_date returned nil"
       render json: { error: 'Failed to set publication date' }, status: :unprocessable_entity
       return
     end
@@ -89,13 +91,16 @@ class ActivitiesController < ApplicationController
   def update
     activity = Activity.find(params[:id])
     if activity
-      update_params = activity_params.except(:poster_file)
+      update_params = params.permit(:work_plan_id, :week, :activity_type, :name, :realization_date, :realization_time,
+                                    :responsible_ids, :publication_days_before, :reminder_frequency_days, :is_remote,
+                                    :meeting_link, responsible_ids: [])
+  
       if params[:poster_file].present?
         poster_url = upload_poster(params[:poster_file])
         update_params[:poster_url] = poster_url
       end
-
-      if activity.update(update_params)
+  
+      if activity.update_attributes(update_params)
         check_activity_with_visitors(activity)
         render json: activity.attributes
       else
@@ -105,7 +110,6 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
-
   def add_evidence
     activity = Activity.find(params[:id])
     if activity
@@ -151,25 +155,26 @@ class ActivitiesController < ApplicationController
 
   def mark_as_done
     activity = Activity.find(params[:id])
-
+  
     if activity
       evidence_files = params[:evidence_files]
-
-      if evidence_files.present? && evidence_files.is_a?(Array)
+  
+      if evidence_files.present?
+        evidence_files = [evidence_files] unless evidence_files.is_a?(Array)
         evidence_urls = []
-
+  
         evidence_files.each do |file|
           evidence_url = upload_evidence(file)
           evidence_urls << evidence_url
         end
-
+  
         update_attrs = {
           status: 'REALIZADA',
           evidences: activity.evidences.to_a.concat(evidence_urls)
         }
-
+  
         FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
-
+  
         render json: { message: 'Activity marked as done successfully' }
       else
         render json: { error: 'Evidence files are required' }, status: :bad_request
@@ -181,16 +186,16 @@ class ActivitiesController < ApplicationController
 
   def cancel
     activity = Activity.find(params[:id])
-
+  
     if activity
       cancel_reason = params[:cancel_reason]
-
+  
       if cancel_reason.present?
         activity.cancel(cancel_reason)
-
+  
         visitor = CancellationVisitor.new
         activity.accept(visitor)
-
+  
         render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
@@ -249,7 +254,7 @@ class ActivitiesController < ApplicationController
     activity = Activity.find(params[:id])
 
     if activity
-      system_date = SystemDate.current_date.date
+      system_date = SystemDateglobaldate.current_date.date
       publication_date = activity.realization_date - activity.publication_days_before.days
 
       if system_date >= publication_date

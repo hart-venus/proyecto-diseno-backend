@@ -239,6 +239,8 @@ GEM
     matrix (0.4.2)
     mini_mime (1.1.5)
     minitest (5.22.3)
+    mocha (2.4.0)
+      ruby2_keywords (>= 0.0.5)
     msgpack (1.7.2)
     multi_json (1.15.0)
     mutex_m (0.2.0)
@@ -330,6 +332,7 @@ GEM
     roo (2.10.1)
       nokogiri (~> 1)
       rubyzip (>= 1.3.0, < 3.0.0)
+    ruby2_keywords (0.0.5)
     rubyzip (2.3.2)
     selenium-webdriver (4.19.0)
       base64 (~> 0.2)
@@ -406,6 +409,7 @@ DEPENDENCIES
   json (= 2.5.1)
   jwt
   mail
+  mocha
   net-http
   puma (>= 5.0)
   rack-cors

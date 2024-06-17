@@ -7,13 +7,14 @@ class Activity
                 :poster_url, :status, :cancel_reason, :evidences, :notification_date, :publication_date,
                 :last_reminder_sent_at, :announcement_sent, :work_plan_campus
 
-  validates :work_plan_id, :week, :activity_type, :name, :realization_date, :realization_time,
-            :responsible_ids, :publication_days_before, :reminder_frequency_days, :is_remote, :status,
+  validates :work_plan_id, :activity_type, :name, :realization_date, :realization_time,
+            :responsible_ids, :publication_days_before, :reminder_frequency_days, :status,
             presence: true
-  validates :week, inclusion: { in: 1..16 }
+  validates :week, inclusion: { in: (1..16)}
   validates :status, inclusion: { in: ['PLANEADA', 'NOTIFICADA', 'REALIZADA', 'CANCELADA'] }
   validates :realization_time, presence: true, format: { with: /\A(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]\z/, message: "must be in HH:MM format" }
-
+  validates :meeting_link, presence: true, if: :is_remote?
+  
   def self.create(attributes)
     activity = new(attributes)
     if activity.valid?
@@ -51,15 +52,20 @@ class Activity
     activities
   end
 
-  def update(attributes)
-    attrs = self.attributes.dup
-    attrs.merge!(attributes)
+  def update_attributes(attributes)
+    attrs = attributes.to_h
     return false unless valid?
-
+  
     calculate_dates
     self.work_plan_campus = WorkPlan.find(self.work_plan_id).campus
-    FirestoreDB.col('activities').doc(id).update(attrs)
-    true
+    attrs[:work_plan_campus] = self.work_plan_campus
+    
+    unless attrs.empty?
+      FirestoreDB.col('activities').doc(id).update(attrs)
+      true
+    else
+      false
+    end
   end
 
   def save
@@ -87,8 +93,20 @@ class Activity
     dates
   end
 
-  def cancel(reason)
-    update(status: 'CANCELADA', cancel_reason: reason)
+  def is_remote?
+    is_remote == true
+  end
+
+  def cancel(cancel_reason)
+    self.status = 'CANCELADA'
+    self.cancel_reason = cancel_reason
+  
+    # Update the activity in Firestore
+    activity_ref = FirestoreDB.col('activities').doc(id)
+    activity_ref.update({
+      status: status,
+      cancel_reason: cancel_reason
+    })
   end
 
   def self.init(params)
