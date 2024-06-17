@@ -1,5 +1,5 @@
 # app/models/system_date.rb
-class SystemDate
+class SystemDateglobaldate
   include ActiveModel::Model
   attr_accessor :id, :date
 

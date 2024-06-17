@@ -33,13 +33,13 @@ class ActivitiesController < ApplicationController
     activity = Activity.init(activity_params.except(:activity))
     activity.status = 'PLANEADA'
   
-    system_date = SystemDate.current_date
+    system_date = SystemDateglobaldate.current_date
     system_date = system_date.date
     if system_date
       activity.publication_date = system_date
       print("Publication Date2: #{activity.publication_date}\n")
     else
-      puts "Error: SystemDate.current_date returned nil"
+      puts "Error: SystemDateglobaldate.current_date returned nil"
       render json: { error: 'Failed to set publication date' }, status: :unprocessable_entity
       return
     end
@@ -254,7 +254,7 @@ class ActivitiesController < ApplicationController
     activity = Activity.find(params[:id])
 
     if activity
-      system_date = SystemDate.current_date.date
+      system_date = SystemDateglobaldate.current_date.date
       publication_date = activity.realization_date - activity.publication_days_before.days
 
       if system_date >= publication_date

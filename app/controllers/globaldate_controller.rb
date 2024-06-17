@@ -1,19 +1,20 @@
+
 class GlobaldateController < ApplicationController
   skip_forgery_protection
-
-  def show
-    @system_date = SystemDate.current_date
-    render json: { date: @system_date.date }
+  
+  def showglobaldate
+    @system_date_globaldate = SystemDateglobaldate.current_date
+    render json: { date: @system_date_globaldate.date }
   end
 
-  def update
-    @system_date = SystemDate.current_date
-    if params[:system_date] && params[:system_date][:date].present?
+  def updateglobaldate
+    @system_date_globaldate = SystemDateglobaldate.current_date
+    if params[:system_date_globaldate] && params[:system_date_globaldate][:date].present?
       # Parse the date without specifying the time zone
-      @system_date.date = Date.parse(params[:system_date][:date])
-      if @system_date.save
+      @system_date_globaldate.date = Date.parse(params[:system_date_globaldate][:date])
+      if @system_date_globaldate.save
         check_activities_on_date_change
-        render json: { message: 'System date updated successfully', date: @system_date.date }
+        render json: { message: 'System date updated successfully', date: @system_date_globaldate.date }
       else
         render json: { error: 'Failed to update system date' }, status: :unprocessable_entity
       end
@@ -22,20 +23,20 @@ class GlobaldateController < ApplicationController
     end
   end
 
-  def increment
-    @system_date = SystemDate.current_date
+  def incrementglobaldate
+    @system_date_globaldate = SystemDateglobaldate.current_date
     days = params[:days].to_i
-    @system_date.increment(days)
+    @system_date_globaldate.increment(days)
     check_activities_on_date_change
-    render json: { message: 'System date incremented successfully', date: @system_date.date }
+    render json: { message: 'System date incremented successfully', date: @system_date_globaldate.date }
   end
 
-  def decrement
-    @system_date = SystemDate.current_date
+  def decrementglobaldate
+    @system_date_globaldate = SystemDateglobaldate.current_date
     days = params[:days].to_i
-    @system_date.decrement(days)
+    @system_date_globaldate.decrement(days)
     check_activities_on_date_change
-    render json: { message: 'System date decremented successfully', date: @system_date.date }
+    render json: { message: 'System date decremented successfully', date: @system_date_globaldate.date }
   end
 
   private

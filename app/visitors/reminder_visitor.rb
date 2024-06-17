@@ -1,7 +1,7 @@
 class ReminderVisitor < ActivityVisitor
   def visit(activity)
     if activity.status == 'NOTIFICADA'
-      current_date = SystemDate.current_date.date
+      current_date = SystemDateglobaldate.current_date.date
 
       # Find the next reminder date that is equal to or before the current date
       next_reminder_date = activity.reminder_dates.select { |date| date <= current_date }.max
@@ -11,7 +11,9 @@ class ReminderVisitor < ActivityVisitor
         activity.last_reminder_sent_at = current_date
         activity.save
 
-        realization_date_str = activity.realization_date.strftime("%d/%m/%Y")
+        # Parse the realization_date string into a date object
+        realization_date = Date.parse(activity.realization_date)
+        realization_date_str = realization_date.strftime("%d/%m/%Y")
         realization_time_str = activity.realization_time.to_s
 
         success = NotificationsController.new.send_notification_to_campus(

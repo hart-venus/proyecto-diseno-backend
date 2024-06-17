@@ -1,6 +1,6 @@
 class PublicationVisitor < ActivityVisitor
   def visit(activity)
-    system_date = SystemDate.current_date.date
+    system_date = SystemDateglobaldate.current_date.date
 
     publication_date = activity.publication_date + activity.publication_days_before.days
     print "Fecha de publicación: #{publication_date}\n"
