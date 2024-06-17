@@ -80,7 +80,7 @@ Rails.application.routes.draw do
 
   get 'system_date', to: 'system_dates#show'
   put 'system_date', to: 'system_dates#update'
-  post 'system_date/increment', to: 'system_dates#increment'
+  post 'system_date/increment ', to: 'system_dates#increment'
   post 'system_date/decrement', to: 'system_dates#decrement'
 
 
