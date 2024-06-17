@@ -77,11 +77,10 @@ Rails.application.routes.draw do
   get '/comments/:parent_comment_id/replies' , to: 'activity_comments#direct_reply_comments'
 
   # Rutas para el controlador de GlobalSystemDates
-
-  get 'system_date', to: 'system_dates#show'
-  put 'system_date', to: 'system_dates#update'
-  post 'system_date/increment', to: 'system_dates#increment'
-  post 'system_date/decrement', to: 'system_dates#decrement'
+  get 'globaldate', to: 'globaldate#show'
+  put 'globaldate', to: 'globaldate#update'
+  post 'globaldate/augment', to: 'globaldate#increment'
+  post 'globaldate/degment', to: 'globaldate#decrement'
 
 
   get 'student_inbox/:student_carne', to: 'student_inbox#show'

@@ -1,4 +1,4 @@
-class SystemDatesController < ApplicationController
+class GlobaldateController < ApplicationController
   skip_forgery_protection
 
   def show
