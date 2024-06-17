@@ -27,7 +27,9 @@ class ActivitiesController < ApplicationController
     :realization_time, :responsible_ids, :publication_days_before,
     :reminder_frequency_days, :is_remote, :meeting_link, :poster_file,
     responsible_ids: [])
-
+    activity_params[:publication_days_before] = activity_params[:publication_days_before].to_i
+    activity_params[:reminder_frequency_days] = activity_params[:reminder_frequency_days].to_i
+    activity_params[:week] = activity_params[:week].to_i
     activity = Activity.init(activity_params.except(:activity))
     activity.status = 'PLANEADA'
   
