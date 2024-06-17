@@ -46,12 +46,15 @@ class GlobaldateController < ApplicationController
       Activity.new(activity_doc.data.merge(id: activity_doc.document_id))
     end
   
-    publication_visitor = PublicationVisitor.new
-    reminder_visitor = ReminderVisitor.new
+    observer = ActivityObserver.new
+    publication_visitor = PublicationVisitor.new(observer)
+    reminder_visitor = ReminderVisitor.new(observer)
+    cancellation_visitor = CancellationVisitor.new(observer)
   
     activities.each do |activity|
       activity.accept(publication_visitor)
       activity.accept(reminder_visitor)
+      activity.accept(cancellation_visitor)
     end
   end
 end

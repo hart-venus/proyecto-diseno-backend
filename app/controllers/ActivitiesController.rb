@@ -32,7 +32,7 @@ class ActivitiesController < ApplicationController
     activity_params[:week] = activity_params[:week].to_i
     activity = Activity.init(activity_params.except(:activity))
     activity.status = 'PLANEADA'
-  
+
     system_date = SystemDateglobaldate.current_date
     system_date = system_date.date
     if system_date
@@ -43,7 +43,7 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Failed to set publication date' }, status: :unprocessable_entity
       return
     end
-  
+
     work_plan = WorkPlan.find(activity.work_plan_id)
     if work_plan
       activity.work_plan_campus = work_plan.campus
@@ -52,31 +52,20 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Invalid work plan ID' }, status: :unprocessable_entity
       return
     end
-  
+
     if activity.valid?
       poster_url = upload_poster(params[:poster_file]) if params[:poster_file].present?
       activity.poster_url = poster_url
       activity_ref = Activity.create(activity.attributes)
-  
+
       if activity_ref
-        # Check if the activity should be published immediately
-        publication_visitor = PublicationVisitor.new
-        begin
-          activity_ref.accept(publication_visitor)
-        rescue => e
-          puts "Error occurred while accepting PublicationVisitor: #{e.message}"
-          puts e.backtrace.join("\n")
-        end
-  
-        # Check if the activity has any reminders to be sent
-        reminder_visitor = ReminderVisitor.new
-        begin
-          activity_ref.accept(reminder_visitor)
-        rescue => e
-          puts "Error occurred while accepting ReminderVisitor: #{e.message}"
-          puts e.backtrace.join("\n")
-        end
-  
+        observer = ActivityObserver.new
+        publication_visitor = PublicationVisitor.new(observer)
+        reminder_visitor = ReminderVisitor.new(observer)
+
+        activity_ref.accept(publication_visitor)
+        activity_ref.accept(reminder_visitor)
+
         render json: activity_ref.attributes, status: :created
       else
         puts "Failed to create activity: #{activity.errors.full_messages.join(', ')}"
@@ -94,14 +83,20 @@ class ActivitiesController < ApplicationController
       update_params = params.permit(:work_plan_id, :week, :activity_type, :name, :realization_date, :realization_time,
                                     :responsible_ids, :publication_days_before, :reminder_frequency_days, :is_remote,
                                     :meeting_link, responsible_ids: [])
-  
+
       if params[:poster_file].present?
         poster_url = upload_poster(params[:poster_file])
         update_params[:poster_url] = poster_url
       end
-  
+
       if activity.update_attributes(update_params)
-        check_activity_with_visitors(activity)
+        observer = ActivityObserver.new
+        publication_visitor = PublicationVisitor.new(observer)
+        reminder_visitor = ReminderVisitor.new(observer)
+
+        activity.accept(publication_visitor)
+        activity.accept(reminder_visitor)
+
         render json: activity.attributes
       else
         render json: { error: 'Failed to update activity', details: activity.errors.full_messages }, status: :unprocessable_entity
@@ -110,6 +105,7 @@ class ActivitiesController < ApplicationController
       render json: { error: 'Activity not found' }, status: :not_found
     end
   end
+
   def add_evidence
     activity = Activity.find(params[:id])
     if activity
@@ -136,8 +132,9 @@ class ActivitiesController < ApplicationController
   def activate
     activity = Activity.find(params[:id])
     if activity
-      visitor = PublicationVisitor.new
-      activity.accept(visitor)
+      observer = ActivityObserver.new
+      publication_visitor = PublicationVisitor.new(observer)
+      activity.accept(publication_visitor)
       render json: activity.attributes
     else
       render json: { error: 'Activity not found' }, status: :not_found
@@ -146,35 +143,36 @@ class ActivitiesController < ApplicationController
 
   def send_reminders
     activities = Activity.all
-    visitor = ReminderVisitor.new
+    observer = ActivityObserver.new
+    reminder_visitor = ReminderVisitor.new(observer)
     activities.each do |activity|
-      activity.accept(visitor)
+      activity.accept(reminder_visitor)
     end
     render json: { message: 'Reminders sent successfully' }
   end
 
   def mark_as_done
     activity = Activity.find(params[:id])
-  
+
     if activity
       evidence_files = params[:evidence_files]
-  
+
       if evidence_files.present?
         evidence_files = [evidence_files] unless evidence_files.is_a?(Array)
         evidence_urls = []
-  
+
         evidence_files.each do |file|
           evidence_url = upload_evidence(file)
           evidence_urls << evidence_url
         end
-  
+
         update_attrs = {
           status: 'REALIZADA',
           evidences: activity.evidences.to_a.concat(evidence_urls)
         }
-  
+
         FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
-  
+
         render json: { message: 'Activity marked as done successfully' }
       else
         render json: { error: 'Evidence files are required' }, status: :bad_request
@@ -186,16 +184,17 @@ class ActivitiesController < ApplicationController
 
   def cancel
     activity = Activity.find(params[:id])
-  
+
     if activity
       cancel_reason = params[:cancel_reason]
-  
+
       if cancel_reason.present?
         activity.cancel(cancel_reason)
-  
-        visitor = CancellationVisitor.new
-        activity.accept(visitor)
-  
+
+        observer = ActivityObserver.new
+        cancellation_visitor = CancellationVisitor.new(observer)
+        activity.accept(cancellation_visitor)
+
         render json: { message: 'Activity cancelled successfully' }
       else
         render json: { error: 'Cancel reason is required' }, status: :bad_request
@@ -297,13 +296,5 @@ class ActivitiesController < ApplicationController
     file_obj.acl.public!
 
     file_obj.public_url
-  end
-
-  def check_activity_with_visitors(activity)
-    publication_visitor = PublicationVisitor.new
-    reminder_visitor = ReminderVisitor.new
-
-    activity.accept(publication_visitor)
-    activity.accept(reminder_visitor)
   end
 end
