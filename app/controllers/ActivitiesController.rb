@@ -155,25 +155,26 @@ class ActivitiesController < ApplicationController
 
   def mark_as_done
     activity = Activity.find(params[:id])
-
+  
     if activity
       evidence_files = params[:evidence_files]
-
-      if evidence_files.present? && evidence_files.is_a?(Array)
+  
+      if evidence_files.present?
+        evidence_files = [evidence_files] unless evidence_files.is_a?(Array)
         evidence_urls = []
-
+  
         evidence_files.each do |file|
           evidence_url = upload_evidence(file)
           evidence_urls << evidence_url
         end
-
+  
         update_attrs = {
           status: 'REALIZADA',
           evidences: activity.evidences.to_a.concat(evidence_urls)
         }
-
+  
         FirestoreDB.col('activities').doc(activity.id).update(update_attrs)
-
+  
         render json: { message: 'Activity marked as done successfully' }
       else
         render json: { error: 'Evidence files are required' }, status: :bad_request
