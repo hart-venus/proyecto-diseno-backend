@@ -92,7 +92,7 @@ DELETE /users/:id                          → destroy
 <details>
 <summary>Professors, Students, Work Plans…</summary>
 
-See `config/routes.rb` for the full matrix—endpoints are grouped by controller and follow the same RESTful shape shown above. citeturn6view0
+See `config/routes.rb` for the full matrix—endpoints are grouped by controller and follow the same RESTful shape shown above.
 </details>
 
 ---
